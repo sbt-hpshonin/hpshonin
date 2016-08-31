@@ -1,0 +1,9 @@
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Debug\ConvHtmlToTxt.exe.config
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Debug\ConvHtmlToTxt.exe
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Debug\ConvHtmlToTxt.pdb
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Debug\HtmlAgilityPack.dll
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Debug\HtmlAgilityPack.pdb
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Debug\HtmlAgilityPack.xml
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\obj\Debug\ConvHtmlToTxt.csprojResolveAssemblyReference.cache
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\obj\Debug\ConvHtmlToTxt.exe
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\obj\Debug\ConvHtmlToTxt.pdb

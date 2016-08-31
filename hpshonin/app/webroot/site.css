@@ -1,0 +1,213 @@
+/*
+
+site css
+
+*/
+
+
+body, input, textarea, select, button, th, td {
+	font-family: メイリオ, Meiryo, 'ＭＳ Ｐゴシック', sans-serif !important;
+	font-size:12px !important;
+}
+
+body {
+	padding-top:20px;
+}
+
+.form-horizontal .control-label {
+	width: 90px;
+}
+.form-horizontal .controls {
+	margin-left: 110px;
+}
+
+.form-horizontal.wide .control-label {
+	width: 180px;
+}
+.form-horizontal.wide .controls {
+	margin-left: 200px;
+}
+
+
+.icon {
+	margin-top:1px;
+	margin-right:2px;
+}
+.btn .icon {
+	margin-top:2px;
+	margin-right:2px;
+}
+.icon-circle {
+	background-image: url(./lib/bootstrap/img/icon-circle.png);
+	background-position: 0 0;
+}
+
+.titlebar {
+	color:#fff;
+	font-size: 18px;
+	font-weight:normal;
+	border:solid 1px #08c;
+	background-color: #08c;
+	text-decoration: none;
+	border-radius: 4px;
+	-webkit-border-radius: 4px;
+	margin-top:0;
+	margin-bottom:20px;
+	line-height:1em;
+	padding:8px 12px;
+	height:20px;
+}
+
+.titlebar a{
+	color:#fff;
+	font-size: 12px;
+}
+.titlebar a .icon{
+	margin-top:2px;
+	margin-right:2px;
+}
+
+.subtitlebar {
+	color:#fff;
+	font-size: 16px;
+	font-weight:normal;
+	border:solid 1px #999;
+	background-color: #999;
+	text-decoration: none;
+	border-radius: 4px;
+	-webkit-border-radius: 4px;
+	margin-top:0;
+	margin-bottom:20px;
+	line-height:1em;
+	padding:8px 12px;
+	height:16px;
+}
+
+.block {
+	margin-bottom:20px;
+	padding:8px 12px;
+	border:solid 1px #eee;
+	border-radius: 4px;
+	-webkit-border-radius: 4px;
+}
+
+.block .head {
+	background-color: #eee;
+	margin:-8px -12px;
+	padding:8px 12px 8px 12px;
+}
+
+.block .body {
+	margin-top:24px;
+}
+
+.block .form {
+	margin-top:8px;
+	margin-bottom:16px;
+}
+.block .form input {
+	margin-bottom:0;
+}
+
+
+ul.list {
+	margin-left:0;
+}
+ul.list li {
+	list-style:none;
+}
+span.label {
+	margin-right:2px;
+}
+
+.al_c {
+	text-align:center !important;
+}
+.va_m {
+	vertical-align:middle !important;
+}
+
+.exc {
+	color:#c33;
+	font-size:10px !important;
+}
+
+.obox .head {
+	font-size: 16px;
+	font-weight:bold;
+	margin-bottom:10px;
+	border-bottom: solid 1px #eee;
+}
+.obox .body {
+	margin-bottom:10px;
+}
+.obox .foot {
+}
+
+
+.hide {
+	display:none;
+}
+
+.mB0 {
+	margin-bottom:0;
+}
+.mB20 {
+	margin-bottom:20px;
+}
+
+.mT0 {
+	margin-top:0;
+}
+.mT20 {
+	margin-top:20px;
+}
+
+.maxH220 {
+	max-height:220px;
+	overflow:auto;
+}
+.maxH160 {
+	max-height:160px;
+	overflow:auto;
+}
+
+.clearfix:after {
+	content: "";
+	clear: both;
+	display: block;
+}
+.floatL {
+	float:left;
+}
+.floatR {
+	float:right;
+}
+
+
+/* パッケージ登録画面 */
+body.pkg_new .datetimepicker {
+	width:100px;
+	margin-right:28px;
+}
+
+/* ブログパッケージ登録画面 */
+body.pkg_new_blg .datetimepicker {
+	width:100px;
+	margin-right:28px;
+}
+
+/* diff画面 */
+body.diff .tabc {
+	height:520px;
+}
+body.diff #pane_preview div {
+	width:49%;
+	height:100%;
+	border:solid 1px #ccc;
+}
+
+body.diff .input-append.searchbox {
+	margin-bottom:0;
+}
+

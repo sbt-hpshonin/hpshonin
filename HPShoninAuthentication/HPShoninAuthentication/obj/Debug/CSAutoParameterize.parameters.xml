@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<parameters>
+  <parameter name="stk-Web.config Connection String" description="stk データベースに接続するためにアプリケーションによって web.config で使用される接続文字列。" defaultValue="server=localhost;uid=stk3user;pwd=stkpass;database=stk3;" tags="SqlConnectionString">
+    <parameterEntry kind="XmlFile" scope="C:\\Users\\hpshonin\\Documents\\Visual\ Studio\ 2013\\Projects\\HPShoninAuthentication\\HPShoninAuthentication\\obj\\Debug\\Package\\PackageTmp\\Web\.config$" match="/configuration/connectionStrings/add[@name='stk']/@connectionString" />
+  </parameter>
+</parameters>

@@ -1,0 +1,8 @@
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Release\ConvHtmlToTxt.exe.config
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Release\ConvHtmlToTxt.exe
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Release\ConvHtmlToTxt.pdb
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Release\HtmlAgilityPack.dll
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Release\HtmlAgilityPack.pdb
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\bin\Release\HtmlAgilityPack.xml
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\obj\Release\ConvHtmlToTxt.exe
+c:\users\hiaono\documents\visual studio 2012\Projects\ConvHtmlToTxt\ConvHtmlToTxt\obj\Release\ConvHtmlToTxt.pdb

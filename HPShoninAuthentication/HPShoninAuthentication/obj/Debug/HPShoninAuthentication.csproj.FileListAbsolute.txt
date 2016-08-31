@@ -1,0 +1,12 @@
+c:\users\hiaono\documents\visual studio 2012\Projects\HPShoninAuthentication\HPShoninAuthentication\obj\Debug\HPShoninAuthentication.csprojResolveAssemblyReference.cache
+c:\users\hiaono\documents\visual studio 2012\Projects\HPShoninAuthentication\HPShoninAuthentication\bin\HPShoninAuthentication.dll
+c:\users\hiaono\documents\visual studio 2012\Projects\HPShoninAuthentication\HPShoninAuthentication\bin\HPShoninAuthentication.pdb
+c:\users\hiaono\documents\visual studio 2012\Projects\HPShoninAuthentication\HPShoninAuthentication\bin\MySql.Data.dll
+c:\users\hiaono\documents\visual studio 2012\Projects\HPShoninAuthentication\HPShoninAuthentication\obj\Debug\HPShoninAuthentication.dll
+c:\users\hiaono\documents\visual studio 2012\Projects\HPShoninAuthentication\HPShoninAuthentication\obj\Debug\HPShoninAuthentication.pdb
+C:\Users\hpshonin\Documents\Visual Studio 2013\Projects\HPShoninAuthentication\HPShoninAuthentication\bin\HPShoninAuthentication.dll.config
+C:\Users\hpshonin\Documents\Visual Studio 2013\Projects\HPShoninAuthentication\HPShoninAuthentication\bin\HPShoninAuthentication.dll
+C:\Users\hpshonin\Documents\Visual Studio 2013\Projects\HPShoninAuthentication\HPShoninAuthentication\bin\HPShoninAuthentication.pdb
+C:\Users\hpshonin\Documents\Visual Studio 2013\Projects\HPShoninAuthentication\HPShoninAuthentication\obj\Debug\HPShoninAuthentication.dll
+C:\Users\hpshonin\Documents\Visual Studio 2013\Projects\HPShoninAuthentication\HPShoninAuthentication\obj\Debug\HPShoninAuthentication.pdb
+C:\Users\hpshonin\Documents\Visual Studio 2013\Projects\HPShoninAuthentication\HPShoninAuthentication\obj\Debug\HPShoninAuthentication.csprojResolveAssemblyReference.cache
