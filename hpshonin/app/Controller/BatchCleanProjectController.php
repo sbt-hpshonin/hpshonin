@@ -81,7 +81,6 @@ class BatchCleanProjectController extends BatchAppController {
 				// 更新値
 				$project['Project']['is_clean']			= AppConstants::FLAG_ON; 		// 掃除フラグ
 				$project['Project']['modified_user_id'] = AppConstants::USER_ID_SYSTEM;	// 更新者ID
-				$project['Project']['modified']			= null;							// 更新日時
 
 				// パッケージを更新
 				$this->Project->save($project);
@@ -147,6 +146,15 @@ class BatchCleanProjectController extends BatchAppController {
 			}
 		}
 
+		// MTブログフォルダを削除
+		if (FileUtil::exists(AppConstants::DIRECTORY_MT_BLOG_PATH . DS . $site_url)) {
+			if (FileUtil::rmdirAll(AppConstants::DIRECTORY_MT_BLOG_PATH . DS . $site_url) === false) {
+				$this->log('MTブログフォルダの削除に失敗しました。サイトURL：[' . $site_url . ']', LOG_ERR);
+				$this->log('削除されたプロジェクトの公開用のフォルダを削除(内部) 異常終了', LOG_DEBUG);
+				return false;;
+			}
+		}
+
 		$this->log('削除されたプロジェクトの公開用のフォルダを削除(内部) 正常終了', LOG_DEBUG);
 	}
 
@@ -158,7 +166,7 @@ class BatchCleanProjectController extends BatchAppController {
 	private function getDirectorPublishPathList() {
 		$ret = array();
 		for($i = 1; ; $i++) {
-			$path = constant('AppConstants::DIRECTOR_PUBLISH_PATH_' . $i);
+			@ $path = constant('AppConstants::DIRECTOR_PUBLISH_PATH_' . $i);
 			if (!$path) {
 				break;
 			}

@@ -51,12 +51,6 @@ class MainShell extends AppShell {
 
 		// 全てのキューで以下を実施
 		foreach ($queues as $queue) {
-			// 実行しない条件を列挙
-			if ($this->isPackageBelongSameProject($queue)) continue;
-
-			// キューを実行中に変更
-			$queue['BatchQueue']['result_cd'] = AppConstants::RESULT_CD_EXECUTION;
-			
 			// 2013.10.18 H.Suzuki Added
 			$queue['BatchQueue']['start_at'] = date('Y-m-d H:i:s');
 			// 2013.10.18 H.Suzuki Added END

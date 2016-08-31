@@ -104,7 +104,7 @@ class UsersController extends AppController {
 			//////////////////////////////////////////////
 			// GUID発行
 			//////////////////////////////////////////////
-			$guid = guidChkUtil::getGUID();
+/*			$guid = guidChkUtil::getGUID();
 			$optioon = array(
 					'conditions' => array(
 							'user_id'=>$User["User"]["id"],
@@ -123,7 +123,7 @@ class UsersController extends AppController {
 				$this->Authentication->updateAll($authentication,$optioon["conditions"]);
 			}
 			setcookie("hpshonin-id", $guid ,0,AppConstants::GUID_COOKIE_DIR);
-			
+*/			
 			
 			// ログイン成功→直前URLに戻る
 			$this->redirect($this->Auth->redirect() );
@@ -140,10 +140,14 @@ class UsersController extends AppController {
 		//////////////////////////////////////////////
 		// GUID削除
 		//////////////////////////////////////////////
-		setcookie("hpshonin-id", "",time() - 60*60*24*365,AppConstants::GUID_COOKIE_DIR);
-		$conditions = array('user_id' => $this->Auth->user('id'));
+		$conditions = array('cookie_id' => $_COOKIE['hpshonin-id']);
 		$this->Authentication->deleteAll($conditions);
 		
+		$yestarday = date("Y-m-d H:i:s", strtotime("-1 day",mktime()));
+		$conditions = array('modified < ' => $yestarday);
+		$this->Authentication->deleteAll($conditions);
+		
+		setcookie("hpshonin-id", "",time() - 60*60*24*365,AppConstants::GUID_COOKIE_DIR);
 		
 		$this->Auth->logout();
 		$this->Session->delete("breadcrumb");
@@ -212,27 +216,42 @@ class UsersController extends AppController {
 
 		$option["conditions"] = $finder;
 		$option['recursive'] = 0;
+		$option['fields'] = array(
+				"`User`.`id`",
+				"`User`.`username`",
+				"`User`.`email`",
+				"`User`.`contact_address`",
+				"`User`.`roll_cd`",
+				"`Roll`.`roll_name`",
+		); 
+		
+		$this->User->unbindModel(array('belongsTo'=>array('CreatedUser','ModifiedUser')));
 		$users = $this->User->find('all', $option);
-
 
 		// プロジェクト情報取得
 		foreach($users as $key => $user){
 			$user_id = $user["User"]["id"];
 
 			$optioon = array(
+					'fields' => array(
+							"`Project`.`id`",
+							"`Project`.`project_name`",
+							"`Project`.`is_del`"
+					),
 					'conditions' => array(
 							'ProjectUser.user_id'=>$user_id,
 							'project.is_del'=>0,
 					),
 					'recursive' => 0
 			);
+			$this->ProjectUser->unbindModel(array('belongsTo'=>array('CreatedUser','ModifiedUser','User','Package')));
 			$projects = $this->ProjectUser->find('all',$optioon);
 			$users[$key]["ProjectUser"] = $projects;
 		}
 		$this->set("users",$users );
 
 		$roll_cd = $this->Auth->user('roll_cd');
-
+		
 		$this->set("roll_cd",$roll_cd );
 	}
 
@@ -832,6 +851,20 @@ class UsersController extends AppController {
 		$projectUsers = null;
 		if (!empty($data['User']['id'])){
 			// 編集処理 //////////////////////////////////////////////////////////////
+
+			// (S) 2013.11.05 murata
+			if ($data['User']['roll_cd'] == AppConstants::ROLL_CD_ADMIN ||
+				$data['User']['roll_cd'] == AppConstants::ROLL_CD_PR) {
+				$optioon = array(
+						'ProjectUser.user_id' => $data['User']['id']
+				);
+				if( $this->ProjectUser->deleteAll($optioon) == false ){
+					// DB Error
+					return false;
+				}
+				return true;
+			}
+			// (E) 2013.11.05
 
 			if ($this->Auth->user('roll_cd') == AppConstants::ROLL_CD_SITE ) {
 				// 対象ユーザとログインユーザ共に所属するプロジェクトの取得

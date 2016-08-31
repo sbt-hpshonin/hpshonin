@@ -26,8 +26,11 @@ $(function(){
 });
 
 
+var msg1 = '';
+var msg2 = '';
 // 作成ボタンチェック
 function submitChk(){
+
 
 	$.ajax(
 		{
@@ -40,25 +43,49 @@ function submitChk(){
 				"due_date":$('#due_date').val()
 			},
 			success : function (message){
-				if(message == ""){
-					message = '<?php echo MsgConstants::CONFIRM_EDIT  ?>';
-				}
-				if( confirm(message) == true ){
-					$("#package_edit_form").submit();
+				if(message != ""){
+					msg1 = message;
 				}
 			}
 		}
 	);
+	
+//	$.ajax(
+//			{
+//				url : "<?php echo $this->Html->Url("/packages/add_chk2") ?>",
+//				dataType : "text",
+//				type:"POST",
+//				async: false,
+//				data: { 
+//					"project_id":<?php echo $project['Project']['id']; ?>
+//				},
+//				success : function (package_table){
+//				if(package_table != ""){
+//					msg2 = package_table;
+//				}
+//			}
+//		}
+//	);
+
+	if (msg2 != "") {
+		$('#package_list').html(msg2);
+		$.fancybox.open('#alert',{modal:true,closeBtn:false});
+	} else if (msg1 != "") {
+		$('#alert_messsage').text(msg1);
+		$.fancybox.open('#alert2',{modal:true,closeBtn:false});
+	} else {
+		if(confirm('<?php echo MsgConstants::CONFIRM_EDIT ; ?>')) {
+			$('#package_edit_form').submit();
+			return false;
+		}
+	}
 }
 </script>
 <?php $this->end(); ?>
 
 <div class="row-fluid">
 	<div class="span12">
-		<span class="titlebar" style=" width:97%; height:15px; display: inline-block;_display: inline;">
-			<div style="z-index: 1; position: absolute; right:32px; float: right;"><?php echo $this->Html->link('<i class="icon icon-question-sign icon-white"></i>ヘルプ', '/manual.pdf', array('class'=> 'pull-right' ,'target' => '_blank', "escape" => false)); ?></div>
-			<div style="z-index: 0; position: relative; text-overflow:clip; white-space: nowrap; overflow:hidden; width:90%; height:20px;">パッケージ登録 - <?php echo h($project['Project']['project_name']); ?></div>
-		</span>
+		<?php echo $this->Title->makeTitleBar("パッケージ登録",h($project['Project']['project_name'])) ?>
 		<?php echo $this->Session->flash(); ?>
 		<div class="block">
 			<div class="text-error">
@@ -95,7 +122,7 @@ function submitChk(){
 					<label class="control-label">公開予定日</label>
 					<div class="controls">
 						<div id="datetimepicker" class="input-append datetimepicker">
-							<?php echo $this->Form->text('Package.public_due_date', array('id' => 'due_date', 'class' => 'span12','data-format'=>'yyyy/MM/dd HH:mm:ss PP')); ?>
+							<?php echo $this->Form->text('Package.public_due_date', array('id' => 'due_date', 'class' => 'span12','data-format'=>'yyyy/MM/dd')); ?>
 							<span class="add-on"><i data-time-icon="icon-time" data-date-icon="icon-calendar"></i></span>
 						</div>
 						<div>
@@ -107,7 +134,7 @@ function submitChk(){
 				<div class="control-group">
 					<label class="control-label" for="input_comment">コメント</label>
 					<div class="controls">
-						<?php echo $this->Form->textarea('Package.camment', array('class' => 'span10','placeholder'=>'更新内容などを記載')); ?>
+						<?php echo $this->Form->textarea('Package.camment', array('class' => 'span10','rows'=>10,'placeholder'=>'更新内容などを記載')); ?>
 					</div>
 				</div>
 
@@ -125,6 +152,37 @@ function submitChk(){
 					</div>
 				</div>
 			<?php echo $this->Form->end();?>
+		</div>
+	</div>
+</div>
+<div class="hide">
+	<div id="alert" class="obox" style="width:500px;">
+		<div class="head">
+			<p class="title">公開が完了していないパッケージが存在します</p>
+		</div>
+		<div class="body" id="err_mes">
+			今回登録するパッケージが公開されると、以下のパッケージの内容が反映されていない状態になります。<br />
+			今回登録するパッケージが、複数案の中の1案で、以下のパッケージがその他の案の場合は問題ありませんが、そうでない場合は、以下のパッケージの公開が完了してからパッケージを登録してください。
+			<div id='package_list'></div>
+			パッケージ登録してよろしいですか？
+		</div>
+		<div class="foot">
+			<a href="javascript:void(0)" class="btn" onClick="if(msg1 == ''){ $('#package_edit_form').submit(); } else { $.fancybox.close(); $('#alert_messsage').text(msg1); $.fancybox.open('#alert2',{modal:true,closeBtn:false});} ; return false;">はい</a>
+			<a href="javascript:void(0)" class="btn" onClick="$.fancybox.close();">いいえ</a>
+		</div>
+	</div>
+</div>
+<div class="hide">
+	<div id="alert2" class="obox" style="width:500px;">
+		<div class="head">
+			<p class="title">注意</p>
+		</div>
+		<div class="body" id="err_mes">
+			<div id='alert_messsage'></div>
+		</div>
+		<div class="foot">
+			<a href="javascript:void(0)" class="btn" onClick="$('#package_edit_form').submit(); $.fancybox.close(); return false;">はい</a>
+			<a href="javascript:void(0)" class="btn" onClick="$.fancybox.close();">いいえ</a>
 		</div>
 	</div>
 </div>

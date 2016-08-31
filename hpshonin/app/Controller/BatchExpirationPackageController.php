@@ -34,20 +34,18 @@ class BatchExpirationPackageController extends BatchAppController {
 
 		// 該当パッケージ抽出
 		$sql
-			= "SELECT "
-				. "  sql1.id, "
-				. "  sql1.project_id "
-				. "FROM ( "
-				. "  SELECT * "
-				. "  FROM packages "
-				. "  WHERE (adddate(public_due_date, ".self::TERM_DELAY." ) <= now())"
-				. "    AND `is_del` = '0' "
-				. "    AND `status_cd` NOT IN ('04', '05', '06', '90', '91', '93', '95')"
-				. ") AS sql1 "
-				. "LEFT JOIN batch_queues ON sql1.id = batch_queues.package_id "
-				. "WHERE ( batch_queues.result_cd is NULL || NOT batch_queues.result_cd = '2' ) "
-				. "  AND ( batch_queues.is_del is NULL || batch_queues.is_del = '0' ) "
-			;
+			= "SELECT distinct "
+				."  Package.id,"
+				."  Package.project_id "
+				."FROM packages Package "
+				."WHERE NOT EXISTS("
+				."  SELECT * FROM batch_queues bq "
+				."  WHERE Package.id = bq.package_id "
+				."  AND bq.result_cd = '2' "
+				."  AND bq.is_del = '0') "
+				."AND adddate(Package.public_due_date, ".self::TERM_DELAY." + 1 ) < now() "
+				."AND Package.is_del = '0' "
+				."AND Package.status_cd NOT IN ('06', '91', '93', '95')";
 
 		$packages = $this->Package->query($sql);
 
@@ -57,17 +55,17 @@ class BatchExpirationPackageController extends BatchAppController {
 			try {
 				$queue = array(
 						'Package' => array(
-								'id' => $package['sql1']['id'],
-								'project_id' => $package['sql1']['project_id'],
+								'id' => $package['Package']['id'],
+								'project_id' => $package['Package']['project_id'],
 								'status_cd'	=> '95',
 								'modified_user_id' => 0
 								//'execute_datetime'	=> date("Y-m-d H:i:s")
 						)
 				);
 				$this->Package->save($queue);
-				$this->log("有効期限切れパッケージ(ID:{$package['sql1']['id']})に設定しました。", LOG_INFO);
+				$this->log("有効期限切れパッケージ(ID:{$package['Package']['id']})に設定しました。", LOG_INFO);
 
-				$this->mail_send($package['sql1']['id']);
+				$this->mail_send($package['Package']['id']);
 				$this->log("有効期限切れパッケージメールを送信しました。", LOG_INFO);
 				$this->User->commit();
 			}

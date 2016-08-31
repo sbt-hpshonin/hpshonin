@@ -19,19 +19,21 @@ class Status {
 	const STATUS_CD_RELEASE_NOW			= "05";
 	/**  公開完了CD */
 	const STATUS_CD_RELEASE_COMPLETE	= "06";
+	/**  公開事前準備CD */
+	const STATUS_CD_RELEASE_READY		= "13";
 	/**  パッケージ準備エラーCD */
 	const STATUS_CD_PACKAGE_READY_ERROR	= "90";
 	/**  パッケージ登録却下CD */
 	const STATUS_CD_PACKAGE_READY_REJECT= "91";
 	/**  承認却下CD */
 	const STATUS_CD_APPROVAL_REJECT		= "93";
-	/**  公開取消CD */	
+	/**  公開取消CD */
 	const STATUS_CD_RELEASE_REJECT		= "94";
 	/**  有効期限切れCD */
 	const STATUS_CD_RELEASE_EXPIRATION	= "95";
 	/**  公開エラーCD */
 	const STATUS_CD_RELEASE_ERROR		= "96";
-
+	
 
 	/**  パッケージ準備名称 */
 	const STATUS_NAME_PACKAGE_READY			= "パッケージ準備";
@@ -47,6 +49,8 @@ class Status {
 	const STATUS_NAME_RELEASE_NOW			= "即時公開";
 	/**  公開完了名称 */
 	const STATUS_NAME_RELEASE_COMPLETE		= "公開完了";
+	/**  公開事前名称 */
+	const STATUS_NAME_RELEASE_READY			= "承認済み";
 	/**  パッケージ準備エラー名称 */
 	const STATUS_NAME_PACKAGE_READY_ERROR	= "パッケージ準備エラー";
 	/**  パッケージ登録却下名称 */
@@ -59,7 +63,7 @@ class Status {
 	const STATUS_NAME_RELEASE_EXPIRATION	= "有効期限切れ";
 	/**  公開エラー名称 */
 	const STATUS_NAME_RELEASE_ERROR			= "公開エラー";
-
+	
 	/**
 	 * ステータス名称を取得
 	 * @param string $statusCd	ステータスCD
@@ -104,6 +108,9 @@ class Status {
 
 			case Status::STATUS_CD_RELEASE_ERROR:
 				return Status::STATUS_NAME_RELEASE_ERROR;
+
+			case Status::STATUS_CD_RELEASE_READY:
+				return Status::STATUS_NAME_RELEASE_READY;
 
 			default:
 				return "";

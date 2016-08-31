@@ -36,6 +36,7 @@ class MsgConstants {
 	const ERROR_WRONG_SITE_URL   = "コンテンツファイルの作り方が間違っています。\nプロジェクトのサイトURLをルートフォルダにしてZIPに固めてください。";
 	const ERROR_WRONG_CHAR       = "ファイル名またはフォルダ名に:*?\"<>|#{}%&~+または全角文字をいれないでください。\n{0}";
 	const ERROR_NO_CHANGE_FILE	 = "現在、公開されているファイルから更新されていないファイルがあります。\n{0}\n新規または更新があるファイルだけでコンテンツファイルを作成してください。";
+	const ERROR_WRONG_FILE_EXT	 = "アップロード禁止の拡張子のファイルが含まれているため、アップロードできません。\n{0}";
 
 	const ERROR_WRONG_FILENAME	 = "削除指示ファイルが存在しません。\nファイル名は\"delete.txt\"にしてZIPに固めてください。";
 	const ERROR_NOT_EXISTS		 = "削除指示ファイルに記載されたファイルで公開されていないものがあります。\n{0}\n公開されているファイルのみ指定してください。";

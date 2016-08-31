@@ -13,7 +13,7 @@ App::uses('AppConstants',	'Lib/Constants');
 class BatchEMailStopProcessController extends BatchAppController {
 
 	/** メール送信先設定 **/
-	var $tos = array("smurata@tech.softbank.co.jp" , "hiaono@tech.softbank.co.jp");
+	var $tos = array("sbt-shutoko-pj@tech.softbank.co.jp");
 
 	/** 実行中を異常とする時間 **/
 	const CHECK_TIME = "1:00:00";

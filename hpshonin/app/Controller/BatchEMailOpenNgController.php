@@ -10,7 +10,7 @@ class BatchEMailOpenNgController extends BatchAppController {
 
 	public $uses = array('Package','ProjectUser','User');
 	private $_mailer;
-	
+
 	var $id;
 	var $start_at;
 	var $end_at;
@@ -20,10 +20,10 @@ class BatchEMailOpenNgController extends BatchAppController {
 	function __construct() {
 		$this->start_at = date('Y-m-d H:i:s');
 		$this->end_at = date('Y-m-d H:i:s');
-	}	
+	}
 
 	/*
-	 * 
+	 *
 	*/
 	public function setId($id) {
 		$this->id = $id;
@@ -34,7 +34,7 @@ class BatchEMailOpenNgController extends BatchAppController {
 	public function setEndAt($at) {
 		$this->end_at = $at;
 	}
-	
+
 	/*
 	 * 実行
 	 */
@@ -48,13 +48,13 @@ class BatchEMailOpenNgController extends BatchAppController {
 	}
 
 	private function execute_core($package_id){
-		
+
 		$ctrl = new EMailController();
-		
+
 		// 指定パッケージ取得
 		$optioon = array(
 				'conditions' => array(
-						'Package.id' => $package_id  
+						'Package.id' => $package_id
 				),
 				'recursive' => 1
 		);
@@ -63,7 +63,7 @@ class BatchEMailOpenNgController extends BatchAppController {
 			// 該当パッケージなし
 			return AppConstants::RESULT_CD_FAILURE;
 		}
-		
+
 		$project_id = $package['Project']['id'];
 		$project_name = $package['Project']['project_name'];
 		$package_id = $package['Package']['id'];
@@ -72,17 +72,17 @@ class BatchEMailOpenNgController extends BatchAppController {
 		//$start_at = DateUtil::dateFormat($this->start_at, 'y/m/d H:i');
 		//$end_at = DateUtil::dateFormat($this->end_at, 'y/m/d');
 		$date = date_create($this->start_at);
-		$start_at = date_format($date,  'Y/m/d H:i');
+		$start_at = date_format($date,  'Y/m/d H:i:s');
 		$date = date_create($this->end_at);
-		$end_at = date_format($date, 'Y/m/d H:i');
+		$end_at = date_format($date, 'Y/m/d H:i:s');
 		$date = date_create($package['Package']['public_due_date']);
 		$public_due_date = date_format($date, 'Y/m/d');
-		
-		
+
+
 		$username = $package['User']['username'];
 		$contact_address = $package['User']['contact_address'];
-			
-			
+
+
 		$optioon2 = array(
 				'conditions' => array(
 						'User.is_del' => 0,
@@ -108,7 +108,7 @@ class BatchEMailOpenNgController extends BatchAppController {
 		foreach($project_users as $project_user){
 			$tos[] = $project_user['User']['email'];
 		}
-		
+
 		if(count($tos)){
 			$subject = AppConstants::MAIL_TITLE_HEAD ."公開エラー通知({$project_name})";
 			$bodys
@@ -122,7 +122,7 @@ class BatchEMailOpenNgController extends BatchAppController {
 					. "\n"
 					. "プロジェクト名: {$project_name}\n"
 					. "　パッケージ名: {$package_name}\n"
-					. "　　公開予定日: {$public_due_date}\n"
+					. "当初公開予定日: {$public_due_date}\n"
 					. "----------------------------------------------------------------------\n"
 					. "\n"
 					. "一時的な障害により公開が失敗した可能性があります。\n"

@@ -4,7 +4,10 @@ $user = $this->request->data;
 
 // 戻り先ＵＲＬ取得
 $breadcrumb_ary = $this->Session->read("breadcrumb");
-ksort($breadcrumb_ary);
+if(is_array($breadcrumb_ary) == true ){
+	ksort($breadcrumb_ary);
+}
+($breadcrumb_ary);
 $breadcrumb = "";
 if(is_array($breadcrumb_ary) == true ){
 	array_pop($breadcrumb_ary);
@@ -34,7 +37,7 @@ $this->start('script');?>
 <?php $this->end(); ?>
 		<div class="row-fluid">
 			<div class="span12">
-				<div class="titlebar">ユーザー詳細<?php echo $this->Html->link('<i class="icon icon-question-sign icon-white"></i>ヘルプ', '/manual.pdf', array('class'=> 'pull-right' ,'target' => '_blank', "escape" => false)); ?></div>
+				<?php echo $this->Title->makeTitleBar("ユーザー詳細") ?>
 				<?php echo $this->Session->flash(); ?>
 				<div class="block">
 					<div class="text-error">
@@ -107,7 +110,7 @@ $this->start('script');?>
 					</table>
 				</div>
 				<div class="mB20">
-					<?php echo $this->Html->link('<i class="icon icon-chevron-left"></i>戻る', $breadcrumb, array('escape' => false, 'class' => 'btn')); ?>
+					<a href="<?php echo $breadcrumb; ?>" class="btn" ><i class="icon icon-chevron-left"></i>戻る</a>
 					<?php if ( $roll_cd != AppConstants::ROLL_CD_PR || $user['User']['roll_cd'] != AppConstants::ROLL_CD_ADMIN){
 						echo $this->Html->link('編集', '/users/edit/'.$user['User']['id'], array('class' => 'btn'));
 					}?>

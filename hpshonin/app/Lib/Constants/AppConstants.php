@@ -80,23 +80,25 @@ class AppConstants {
 	const DIRECTOR_PUBLISH_PATH_1 = '\\\\10.0.0.16\ssroot$';
 	const DIRECTOR_PUBLISH_PATH_2 = '\\\\10.0.0.19\ssroot$';
 	/** IISの物理フォルダ */
-	const DIRECTOR_PUBLISH_IIS_PATH = "C:\hpshonin\ssroot";
+	const DIRECTOR_PUBLISH_IIS_PATH = 'C:\hpshonin\ssroot';
 	/** 公開作業フォルダ */
 #	const DIRECTOR_PUBLISH_WORK_PATH_1 = "\\\\10.0.0.16\ssroot$\hpshonin_work";
 #	const DIRECTOR_PUBLISH_WORK_PATH_2 = "\\\\10.0.0.19\ssroot$\hpshonin_work";
+	/** MTブログフォルダ */
+	const DIRECTORY_MT_BLOG_PATH = 'C:\hpshonin\webroot\static\edt\blogroot';
 
 	/** 自サーバ名（プロジェクト詳細用） */
-	const HOME_URL = 'http://reverpro.cloudapp.net/ss';
+	const HOME_URL = 'http://www.shutoko.jp/ss';
 
 	/** 承認用URL */
-	const URL_APPROVAL = "http://hp-shonin.cloudapp.net/pe/static/prv";
+	const URL_APPROVAL = "http://hp-shonin.shutoko.jp/pe/static/prv";
 	/** 公開用URL */
-	const URL_PUBLISH = "http://hp-shonin.cloudapp.net/pe/static/stg";
+	const URL_PUBLISH = "http://hp-shonin.shutoko.jp/pe/static/stg";
 
 	/** 承認用URL(diff用) */
-	const URL_APPROVAL_DIFF = "http://127.0.0.1/pe/static/prv";
+	const URL_APPROVAL_DIFF = "C:/hpshonin/webroot/static/prv";
 	/** 公開用URL(diff用) */
-	const URL_PUBLISH_DIFF = "http://127.0.0.1/pe/static/stg";
+	const URL_PUBLISH_DIFF = "C:/hpshonin/webroot/static/stg";
 
 	/** システムユーザーID */
 	const USER_ID_SYSTEM = 0;
@@ -116,7 +118,7 @@ class AppConstants {
 	const MT_EDIT_DB_USER_PASSWORD = 'HPSh0n!n';
 
 	/** 自サーバ名（メール用） */
-	const MAIL_HOME_URL = 'http://hp-shonin.cloudapp.net/pe/hpshonin';
+	const MAIL_HOME_URL = 'http://hp-shonin.shutoko.jp/pe/hpshonin';
 	/** メールタイトル用文字列 **/
 	const MAIL_TITLE_HEAD ='[特設サイト]';
 
@@ -143,4 +145,43 @@ class AppConstants {
 	const APPCMD_SERVER_USER = 'tokusetsuuser';
 	/** Appcmd用 サーバのユーザーのパスワード */
 	const APPCMD_SERVER_USER_PASSWORD = 'P@ssw0rd123';
+	
+	/** Appcmd用 ステージング用サイト名 */
+	const APPCMD_STAGING_SITE_NAME = 'Default Web Site/pe/static';
+	/** Appcmd用 ステージング用パス */
+	const APPCMD_STAGING_PATH_NAME = '/stg';
+	
+	/** 作成禁止サイトURL  20150113 mod */
+	const BAN_URL_LIST ='common,mt-static,_data';
+	/** アップロード禁止拡張子 */
+	const BAN_EXT_LIST ='config,htaccess,ini,exe,dll,ocx,com,bat,cmd,sh,cgi,php,pl,vbs,lnk,reg';
+
+	/** HTML→TEXT変換ツールのパス */
+	const TEXT_CONVERTER_PATH = 'C:\hpshonin\bin\ConvHtmlToTxt.exe';
+
+	// 置換処理用のURL群
+	/** MT用URL(置換用) */
+	const URL_HOST_REPLACE_ORIGINAL = "http://www.shutoko.jp/ss";
+	/** MT用URL(置換用) */
+	const URL_HOST_REPLACE_ORIGINAL_2 = "http://hp-shonin.shutoko.jp/ss";
+	/** 承認用URL(置換用) */
+	const URL_HOST_REPLACE_APPROVAL = "http://hp-shonin.shutoko.jp/pe/static/prv";
+	/** ステージング用URL */
+	const URL_HOST_REPLACE_STAGING  = "http://hp-shonin.shutoko.jp/pe/static/stg";
+	/** 公開用用URL */
+	const URL_HOST_REPLACE_PUBLISH  = "http://www.shutoko.jp/ss";
+
+	// 置換処理用のURL群
+	/** MT用URL(置換用) */
+	const URL_PATH_REPLACE_ORIGINAL = "/ss";
+	/** 承認用URL(置換用) */
+	const URL_PATH_REPLACE_APPROVAL = "/pe/static/prv";
+	/** ステージング用URL */
+	const URL_PATH_REPLACE_STAGING  = "/pe/static/stg";
+	/** 公開用用URL */
+	const URL_PATH_REPLACE_PUBLISH  = "/ss";
+	
+	// 公開リトライ用
+	/** 公開処理のリトライ回数 */
+	const RETRY_MAX_COUNT = 5;
 }

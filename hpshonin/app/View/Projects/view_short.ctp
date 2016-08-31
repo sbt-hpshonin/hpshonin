@@ -7,10 +7,7 @@ App::uses('DateUtil', 'Lib/Utils');
 ?>
 		<div class="row-fluid">
 			<div class="span12">
-				<span class="titlebar" style=" width:97%; height:15px; display: inline-block;_display: inline;">
-					<div style="z-index: 1; position: absolute; right:32px; float: right;"><?php echo $this->Html->link('<i class="icon icon-question-sign icon-white"></i>ヘルプ', '/manual.pdf', array('class'=> 'pull-right' ,'target' => '_blank', "escape" => false)); ?></div>
-					<div style="z-index: 0; position: relative; text-overflow:clip; white-space: nowrap; overflow:hidden; width:90%; height:20px;">プロジェクト詳細 - <?php echo h($project['Project']['project_name']); ?></div>
-				</span>
+				<?php echo $this->Title->makeTitleBar("プロジェクト詳細",h($project['Project']['project_name'])); ?>
 				<?php echo $this->Session->flash(); ?>
 				<div class="block">
 					<table class="table table-hover">
@@ -139,6 +136,7 @@ App::uses('DateUtil', 'Lib/Utils');
  					    				case Status::STATUS_CD_APPROVAL_OK			:	/**  承認許可CD */
  					    				case Status::STATUS_CD_RELEASE_RESERVE		:	/**  公開予約CD */
  					    				case Status::STATUS_CD_RELEASE_NOW			:	/**  即時公開CD */
+										case Status::STATUS_CD_RELEASE_READY		:	/**  公開事前準備CD */
  					    					print '<i class="icon icon-circle"></i>';
  					    					break;
  					    				case Status::STATUS_CD_RELEASE_COMPLETE	:		/**  公開完了CD */
@@ -159,7 +157,7 @@ App::uses('DateUtil', 'Lib/Utils');
  					    						print '<i class="icon icon icon-remove"></i>';
  					    					}
  					    					break;
- 					    			}
+					    			}
  					    			 
  					    			
  					    		?>
@@ -190,6 +188,9 @@ App::uses('DateUtil', 'Lib/Utils');
 									case Status::STATUS_CD_APPROVAL_REJECT		:	/**  承認却下CD */
 									case Status::STATUS_CD_RELEASE_REJECT		:	/**  公開取消CD */
 										break;
+									case Status::STATUS_CD_RELEASE_READY		:	/** 公開事前準備CD */
+										echo "公開前<br />準備中";
+										break;
 								}
 								?>
 								<?php
@@ -201,6 +202,7 @@ App::uses('DateUtil', 'Lib/Utils');
 											case Status::STATUS_CD_APPROVAL_OK			:	/**  承認許可CD */
 											case Status::STATUS_CD_RELEASE_RESERVE		:	/**  公開予約CD */
 											case Status::STATUS_CD_RELEASE_NOW			:	/**  即時公開CD */
+											case Status::STATUS_CD_RELEASE_READY		:	/** 公開事前準備CD */
 												// print '<i class="icon icon-chevron-right"></i>';
 												break;
 											case Status::STATUS_CD_RELEASE_COMPLETE	:		/**  公開完了CD */

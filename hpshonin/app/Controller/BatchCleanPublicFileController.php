@@ -11,7 +11,7 @@ App::uses('TransactionComponent', 'Component');
 class BatchCleanPublicFileController extends BatchAppController {
 
 	/** モデルを登録 */
-	public $uses = array('Project');
+	public $uses = array('Package');
 
 	/**
 	 * コンストラクタ
@@ -31,33 +31,13 @@ class BatchCleanPublicFileController extends BatchAppController {
 
 		$this->log('公開サイトファイル掃除バッチを開始しました。', LOG_INFO);
 
-		// プロジェクトを取得
-		$project_list = $this->Project->getProjects();
-
-		$this->log('対象プロジェクト↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓');
-		$this->log($project_list);
-		$this->log('対象プロジェクト↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
-
-		if (empty($project_list)) {
-			$this->log('プロジェクトが存在しません。', LOG_DEBUG);
-			$this->log('公開サイトファイル掃除バッチを正常終了しました。', LOG_INFO);
-			return AppConstants::RESULT_CD_SUCCESS; // 結果コード(:成功)
-		}
-
 		// エラーフラグ
 		$error_flg = false;
 
-		foreach ($project_list as $project) {
-
-			// パッケージIDを取得
-			$package_id = $project['Project']['public_package_id'];
-			$this->log('パッケージID：[' . $package_id . ']', LOG_DEBUG);
-
-			// 内部実行
-			if  ($this->executeInner($project) === false) {
-				// エラーフラグを立てる
-				$error_flg = true;
-			}
+		// 内部実行
+		if  ($this->executeInner() === false) {
+			// エラーフラグを立てる
+			$error_flg = true;
 		}
 
 		if ($error_flg == true) {
@@ -75,140 +55,131 @@ class BatchCleanPublicFileController extends BatchAppController {
 	 * @param unknown $project プロジェクト
 	 * @return boolean         成否
 	 */
-	private function executeInner($project) {
-
+	private function executeInner() {
 		$this->log('公開サイトファイル掃除バッチ(内部) 開始', LOG_DEBUG);
-
-		// パッケージIDを取得
-		$package_id = $project['Project']['public_package_id'];
-		$this->log('パッケージID：[' . $package_id . ']', LOG_DEBUG);
-		if (empty($package_id)) {
-			$this->log('プロジェクトは未公開です。', LOG_ERR);
-			$this->log('公開サイトファイル掃除バッチ(内部) 正常終了', LOG_DEBUG);
-			return true;
-		}
-
-		// サイトURLを取得
-		$site_url = $project['Project']['site_url'];
-		$this->log('サイトURL名：[' . $site_url . ']', LOG_DEBUG);
-		if (empty($site_url)) {
-			$this->log('サイトURL名が不正です。', LOG_ERR);
-			$this->log('公開サイトファイル掃除バッチ(内部) 異常終了', LOG_DEBUG);
-			return false;
-		}
+		
+		$packages = $this->Package->getAlivePackages();
 
 		// 全公開フォルダに対して処理を実行
 		$publish_paths = self::getDirectorPublishPathList();
-		$this->log('対象公開パス↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓');
-		$this->log($publish_paths);
-		$this->log('対象公開パス↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
+		$this->log('対象公開パス↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓', LOG_DEBUG);
+		$this->log($publish_paths, LOG_DEBUG);
+		$this->log('対象公開パス↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑', LOG_DEBUG);
 
 		foreach($publish_paths as $publish_path) {
-			// サイトURLの物理パスの存在チェック
-			$site_path = $publish_path . DS . $site_url;
-			if (!FileUtil::exists($site_path)) {
-				$this->log('サイトURLの物理パスが存在しません。サイトパス：[' . $site_path . ']', LOG_ERR);
-				$this->log('公開サイトファイル掃除バッチ(内部) 異常終了', LOG_DEBUG);
-				return false;
-			}
+			
+			foreach ($packages as $package) {
+				$site_url = $package['pj']['site_url'];
+				$package_id = $package['pkg']['id'];
+				
+				// パッケージIDを取得
+				$this->log('パッケージID：[' . $package_id . ']', LOG_DEBUG);
+				if (empty($package_id)) {
+					$this->log('パッケージIDが不正です。', LOG_ERR);
+					$this->log('公開サイトファイル掃除バッチ(内部) 異常終了', LOG_DEBUG);
+					return false;
+				}
+		
+				// サイトURLを取得
+				$this->log('サイトURL名：[' . $site_url . ']', LOG_DEBUG);
+				if (empty($site_url)) {
+					$this->log('サイトURL名が不正です。', LOG_ERR);
+					$this->log('公開サイトファイル掃除バッチ(内部) 異常終了', LOG_DEBUG);
+					return false;
+				}
+				
+				// サイトURLの物理パスの存在チェック
+				$site_path = $publish_path . DS . $site_url . DS . $package_id;
+				$this->log('削除サイト：[' . $site_path . ']', LOG_DEBUG);
+				if (!FileUtil::exists($site_path)) {
+					$this->log('サイトURLの物理パスが存在しません。サイトパス：[' . $site_path . ']', LOG_DEBUG);
+					continue;
+				}
 
-			$dirs = self::getDeleteDirectoryList($site_path, $package_id);
-			if (empty($dirs)) {
-				$this->log('削除する過去の公開ファイルは存在しません。：[' . $package_id . ']', LOG_DEBUG);
-			} else {
-				$this->log('削除対象ディレクトリ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓');
-				$this->log($dirs);
-				$this->log('削除対象ディレクトリ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
-
-				foreach ($dirs as $dir) {
-					$filePath = $site_path.DS.$dir;
-					if(!FileUtil::rmdirAll($filePath)) {
-						$this->log('公開サイトのファイル削除に失敗しました。ファイルパス：[' . $filePath. ']', LOG_ERR);
-						$this->log('公開サイトファイル掃除バッチ(内部) 異常終了', LOG_DEBUG);
-						return false;;
-					}
+				if(!FileUtil::rmdirAll($site_path)) {
+					$this->log('公開サイトのファイル削除に失敗しました。ファイルパス：[' . $site_path. ']', LOG_ERR);
+					$this->log('公開サイトファイル掃除バッチ(内部) 異常終了', LOG_DEBUG);
+					return false;;
 				}
 			}
 		}
-
-		$this->log('登録関連ファイル掃除バッチ(内部) 正常終了', LOG_DEBUG);
+		
+		// ステージングサイト掃除処理
+		if (!self::delStagingSite()) {
+			return false;
+		}
+		
+		$this->log('公開サイトファイル掃除バッチ(内部) 完了', LOG_DEBUG);
+		
 		return true;
 	}
 
+	/**
+	 * ステージングサイト掃除処理
+	 * @return boolean
+	 */
+	private function delStagingSite() {
+
+		$this->log('公開サイトファイル掃除バッチ(ステージング削除処理) 開始', LOG_DEBUG);
+
+		$packages = $this->Package->getAlivePackages();
+		
+		foreach ($packages as $package) {
+			$site_url = $package['pj']['site_url'];
+			$package_id = $package['pkg']['id'];
+	
+			// パッケージIDを取得
+			$this->log('パッケージID：[' . $package_id . ']', LOG_DEBUG);
+			if (empty($package_id)) {
+				$this->log('パッケージIDが不正です。', LOG_ERR);
+				$this->log('公開サイトファイル掃除バッチ(ステージング削除処理) 異常終了', LOG_DEBUG);
+				return false;
+			}
+	
+			// サイトURLを取得
+			$this->log('サイトURL名：[' . $site_url . ']', LOG_DEBUG);
+			if (empty($site_url)) {
+				$this->log('サイトURL名が不正です。', LOG_ERR);
+				$this->log('公開サイトファイル掃除バッチ(ステージング削除処理) 異常終了', LOG_DEBUG);
+				return false;
+			}
+	
+			// サイトURLの物理パスの存在チェック
+			$site_path = AppConstants::DIRECTOR_STAGING_PATH . DS . $site_url . DS . $package_id;
+			$this->log('削除サイト：[' . $site_path . ']', LOG_DEBUG);
+			if (!FileUtil::exists($site_path)) {
+				$this->log('サイトURLの物理パスが存在しません。サイトパス：[' . $site_path . ']', LOG_DEBUG);
+				continue;
+			}
+	
+			if(!FileUtil::rmdirAll($site_path)) {
+				$this->log('ステージングサイトのファイル削除に失敗しました。ファイルパス：[' . $site_path. ']', LOG_ERR);
+				$this->log('公開サイトファイル掃除バッチ(ステージング削除処理) 異常終了', LOG_DEBUG);
+				return false;;
+			}
+		}
+		
+		$this->log('公開サイトファイル掃除バッチ(ステージング削除処理) 完了', LOG_DEBUG);
+		
+		return true;
+	}
+	
+	
+	
 	/**
 	 * 公開用フォルダリストを取得
 	 *
 	 * @return multitype:mixed 公開用フォルダリスト
 	 */
-	private function getDirectorPublishPathList() {
+	protected function getDirectorPublishPathList() {
 		$ret = array();
 		for($i = 1; ; $i++) {
-			$path = constant('AppConstants::DIRECTOR_PUBLISH_PATH_' . $i);
+			@ $path = constant('AppConstants::DIRECTOR_PUBLISH_PATH_' . $i);
 			if (!$path) {
 				break;
 			}
 			$ret[] = $path;
 		}
 		return $ret;
-	}
-
-
-	/**
-	 * 削除対象ディレクトの取得
-	 * @param unknown $site_path
-	 * @param unknown $public_package_id
-	 * @return number|multitype:unknown
-	 */
-	private function getDeleteDirectoryList($site_path, $public_package_id) {
-
-		$this->log('公開サイトファイル掃除バッチ(削除対象ディレクトの取得) 開始', LOG_DEBUG);
-
-
-		// サイトフォルダのディレクトリ群から削除対象を絞り込む
-		$dirs = scandir($site_path, 1);
-		usort($dirs, 'comp');
-
-		$cnt = count($dirs);
-		$rev = 0;
-		$del_dirs = array();
-		// 最新から比較する
-		for($i = $cnt - 1 ; $i >= 0 ; $i--) {
-			$filePath = $site_path.DS.$dirs[$i];
-			if (!is_numeric($dirs[$i])) {
-				$this->log('数字以外は対象外：ディレクトリ['.$dirs[$i].']', LOG_DEBUG);
-				continue;
-			} else if (!file_exists($filePath) or !is_dir($filePath)) {
-				$this->log('ファイルは対象外：ディレクトリ['.$dirs[$i].']', LOG_DEBUG);
-				continue;
-			} else if (intval($dirs[$i]) == $public_package_id) {
-				$this->log('現在公開中のディレクトリは対象外：ディレクトリ['.$dirs[$i].']', LOG_DEBUG);
-				continue;
-			} else if ( $rev < AppConstants::REVISION_NUM_STAY_PUBLIC_DIRECTORY) {
-				$this->log('最近のリビジョン数分は対象外：ディレクトリ['.$dirs[$i].']', LOG_DEBUG);
-				$rev++;
-				continue;
-			}
-			$del_dirs[] = $dirs[$i];
-		}
-
-		$this->log('公開サイトファイル掃除バッチ(削除対象ディレクトの取得) 正常終了', LOG_DEBUG);
-
-		return $del_dirs;
-	}
-
-	/**
-	 * ソートの関数
-	 * @param unknown $a
-	 * @param unknown $b
-	 * @return number
-	 */
-	function comp($a, $b) {
-		if ($a == $b) {
-			return 0;
-		} else if ($a < $b) {
-			return -1;
-		} else {
-			return 1;
-		}
 	}
 }

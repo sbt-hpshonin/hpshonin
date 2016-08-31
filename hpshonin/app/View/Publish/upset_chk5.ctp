@@ -4,14 +4,14 @@ App::uses('DateUtil', 'Lib/Utils');
 ?>
 <style>
 body {
-margin: 0px 0px 40px 0px;
+margin: 0px 0px 90px 0px;
 }
 </style>
 <div class="head">
 	<p class="title">注意</p>
 		</div>
 		<div class="body">
-			同一日(<?php echo DateUtil::dateFormat($target_date, 'Y/m/d'); ?>)に以下のパッケージがすでに公開済み、<br />または、公開予約されています。
+			同一日(<?php echo DateUtil::dateFormat($target_date, 'Y/m/d'); ?>)に以下のパッケージがすでに公開済み、または、公開予約されています。
 			<div class="maxH160">
 				<table class="table table-hover">
 				<thead>
@@ -34,7 +34,7 @@ margin: 0px 0px 40px 0px;
 				</tbody>
 				</table>
 			</div>
-			公開設定してよろしいですか。
+			誤ったパッケージを公開してしまい、それを別のパッケージに切り替える場合は、まず、公開してしまったパッケージを取り消してください。<br />公開設定してよろしいですか。
 		</div>
 		<form name="form" method="post" id="upset" action="<?php echo $this->Html->url("upset_chk7");?>">
 		<input type="hidden" name="mgid" value="<?php echo $_SESSION['mgid'] ?>">

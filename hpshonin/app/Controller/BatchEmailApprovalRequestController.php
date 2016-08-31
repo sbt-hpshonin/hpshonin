@@ -7,10 +7,10 @@ App::uses('DateUtil', 'Lib/Utils');
 
 // 承認依頼メール・承認依頼完了メール クラス
 class BatchEMailApprovalRequestController extends BatchAppController {
-	
+
 	public $uses = array('Package','ProjectUser','User');
 	private $_mailer;
-	
+
 	var $id;
 
 	/**
@@ -19,7 +19,7 @@ class BatchEMailApprovalRequestController extends BatchAppController {
 	public function setId($id) {
 		$this->id = $id;
 	}
-	
+
 	/**
 	 * 実行
 	 */
@@ -34,13 +34,13 @@ class BatchEMailApprovalRequestController extends BatchAppController {
 	}
 
 	private function execute_core($package_id){
-		
+
 		$ctrl = new EMailController();
-		
+
 		// 指定パッケージ取得
 		$optioon = array(
 				'conditions' => array(
-						'Package.id' => $package_id  
+						'Package.id' => $package_id
 				),
 				'recursive' => 1
 		);
@@ -49,7 +49,7 @@ class BatchEMailApprovalRequestController extends BatchAppController {
 			// 該当パッケージなし
 			return AppConstants::RESULT_CD_FAILURE;
 		}
-		
+
 		$project_id = $package['Project']['id'];
 		$project_name = $package['Project']['project_name'];
 		$package_id = $package['Package']['id'];
@@ -61,12 +61,12 @@ class BatchEMailApprovalRequestController extends BatchAppController {
 		$date = date_create($package['Package']['public_due_date']);
 		$public_due_date = date_format($date,  'Y/m/d');
 		$date = date_create($package['Package']['request_modified']);
-		$request_modified = date_format($date, 'Y/m/d H:i');
-		
-		$username = $package['User']['username'];
-		$contact_address = $package['User']['contact_address'];
-			
-			
+		$request_modified = date_format($date, 'Y/m/d H:i:s');
+
+		$username = $package['RequestUser']['username'];
+		$contact_address = $package['RequestUser']['contact_address'];
+
+
 		// 承認依頼メール送信
 		$optioon2 = array(
 				'fields' => 'User.email',
@@ -81,7 +81,7 @@ class BatchEMailApprovalRequestController extends BatchAppController {
 		foreach($project_users as $project_user){
 			$tos[] = $project_user['User']['email'];
 		}
-		
+
 		if(count($tos)){
 			$subject = AppConstants::MAIL_TITLE_HEAD . "承認依頼通知({$project_name})";
 			$bodys
@@ -109,9 +109,9 @@ class BatchEMailApprovalRequestController extends BatchAppController {
 							;
 							$ctrl->send_core($tos,$subject,$bodys);
 		}
-			
+
 		$ctrl = new EMailController();
-		
+
 		// 承認依頼完了メール送信
 		$optioon3 = array(
 				'fields' => 'User.email',
@@ -124,12 +124,12 @@ class BatchEMailApprovalRequestController extends BatchAppController {
 				'recursive' => 1
 		);
 		$project_users3 = $this->ProjectUser->find('all',$optioon3);
-		
+
 		$tos3 = array();
 		foreach($project_users3 as $project_user){
 			$tos3[] = $project_user['User']['email'];
 		}
-		
+
 		if(count($tos3)){
 				$subject = AppConstants::MAIL_TITLE_HEAD ."承認依頼完了通知({$project_name})";
 				$bodys

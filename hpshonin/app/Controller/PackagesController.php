@@ -5,6 +5,7 @@ App::uses('MsgConstants',	'Lib/Constants');
 App::uses('DateUtil', 'Lib/Utils');
 App::uses('Status',	'Lib');
 App::uses('Batch',	'Lib');
+App::uses('StringUtil', 'Lib/Utils');
 
 App::uses('Sanitize', 'Utility');
 App::uses('guidChkUtil', 'Lib/Utils');
@@ -38,6 +39,7 @@ class PackagesController extends AppController {
 	 */
 	public function view($id = "") {
 
+		$package_id = $id;
 		// パラメタチェック
 		if($id == ""){
 			throw new NoDataException( MsgConstants::ERROR_NO_DATA );
@@ -50,7 +52,7 @@ class PackagesController extends AppController {
 			// 必要権限がない場合にはエラー表示
 			throw new NoDataException( MsgConstants::ERROR_AUTH );
 		}
-		
+
 		// パッケージ検索
 		$optioon = array(
 				'conditions' => array(
@@ -97,7 +99,8 @@ class PackagesController extends AppController {
 				'fields' => array('modified','status_cd','ModifiedUser.username'),
 				'conditions' => array(
 						$this->HistoryPackage->alias.'.package_id' => $id ,
-						//$this->HistoryPackage->alias.'.status_cd != ' => Status::STATUS_CD_PACKAGE_READY
+						$this->HistoryPackage->alias.'.status_cd !=' => Status::STATUS_CD_APPROVAL_OK,
+						$this->HistoryPackage->alias.'.is_clean_file' => '0'
 				),
 				'recursive' => 0,
 				'order' => array( $this->HistoryPackage->alias.'.modified DESC')
@@ -121,7 +124,7 @@ class PackagesController extends AppController {
 					'recursive' => -1
 			);
 			$result = $ContentsFile->find('all', $optioon);
-			
+
 			////////////////////////////////////////////
 			// ディレクトリ優先ソート
 			////////////////////////////////////////////
@@ -134,38 +137,22 @@ class PackagesController extends AppController {
 					}
 					$before = $filepass;
 				}
-				
+
 				foreach($result as $filedata) {
 					$filepass =$filedata['ContentsFile']['file_path'];
 					$filedata_tmp[$filepass]=$filedata;
 				}
+				$filepath_baff = array();
 				foreach($result as $filedata) {
-					$filepass =$filedata['ContentsFile']['file_path'];
-					$str=explode("\\",$filepass);
-					$file = array_pop($str);
-					$dir2  = implode("\\\\",$str);
-					$dir1  = implode("\\",$str);
-						
-					if($dir2!=""){
-						$filepath_baff[$dir1] = $dir2 . "\\\\";
+					$filepath_baff[] = $filedata['ContentsFile']['file_path'];
 					}
-					if($file != ""){
-						$filepath_baff[$filepass] = $dir2 . "\\". $file;
-					}
-				}
-				asort($filepath_baff);
-				$filepath_baff = array_unique($filepath_baff);
+				usort($filepath_baff, array("PackagesController", "compare_path"));
 				unset($result);
-				foreach($filepath_baff as $filedata => $null ) {
-					if( isset($filedata_tmp[$filedata]) ){
-						$result[] = $filedata_tmp[$filedata];
-					}
-					else{
-						$result[] = array("ContentsFile"=>array("file_path"=>$filedata . "\\"));
-					}
+				foreach($filepath_baff as $filedata) {
+					$result[] = $filedata_tmp[$filedata];
 				}
 			}
-				
+
 			$file = array();
 			$str_cnt_zen=0;
 			$file_cnt =0;
@@ -190,7 +177,7 @@ class PackagesController extends AppController {
 					$out_flg=0;
 					//ID_CNTの計算
 					if (count($zen_str)>$i){
-						if ($zen_str[$i]==$str[$i]){
+						if (implode("\\", array_slice($zen_str, 0, $i + 1, true)) == implode("\\", array_slice($str, 0, $i + 1, true))){
 							//出力対象外
 							$out_flg=1;
 						}else{
@@ -279,8 +266,7 @@ class PackagesController extends AppController {
 					}
 
 				}
-				$zen_str=$str
-				;
+				$zen_str=$str;
 			}
 			$this->set('file', $file);
 
@@ -321,9 +307,10 @@ class PackagesController extends AppController {
 
 			}
 
-//print_r($mt_posts);
 			$this->set( "mt_posts", $mt_posts );
 		}
+
+		$this->set( "pre_package_id", $this->Package->getPriviousVersionPackageId($package_id));
 
 	}
 
@@ -356,7 +343,7 @@ class PackagesController extends AppController {
 				throw new NoDataException( MsgConstants::ERROR_AUTH );
 			}
 		}
-		
+
 		$result = $this->Project->find('first', array('conditions' => array('Project.id' => $id),'recursive' => -1) );
 		if ( empty($result) ) {
 			throw new NoDataException( MsgConstants::ERROR_NO_DATA );
@@ -454,7 +441,7 @@ class PackagesController extends AppController {
 				throw new NoDataException( MsgConstants::ERROR_AUTH );
 			}
 		}
-		
+
 		// 画面表示
 		$this->__add2Render($id,'');
 	}
@@ -513,6 +500,7 @@ class PackagesController extends AppController {
 								Status::STATUS_CD_RELEASE_NOW,
 								Status::STATUS_CD_RELEASE_ERROR,
 								Status::STATUS_CD_RELEASE_REJECT,
+								Status::STATUS_CD_RELEASE_READY
 						),
 				),
 				'recursive' => -1
@@ -523,9 +511,87 @@ class PackagesController extends AppController {
 			// 公開予定日が一致するパッケージが存在する (NG)
 			return ("同一プロジェクトに公開予定日が同じパッケージがあります。よろしいですか。");
 		}
-
 		return ;
 	}
+
+	/**
+	 * パッケージ登録チェック（Ajax）
+	 * @param project_id
+	 * @return エラーメッセージ
+	 * @author murata
+	 */
+	public function add_chk2(){
+		if ($this->request->is('post') == False) {
+			// 入力なし(NG)
+			$this->autoRender = false;
+		return ;
+	}
+		@$project_id = $this->request->data['project_id'];
+	
+		$this->autoRender = false;
+	
+		// 公開予定日チェック
+		$db_date = date('Y-m-d', strtotime($public_due_date));
+		if ( $db_date < date('Y-m-d') ) {
+			// return ("公開予定日には今日以降を指定してください。");
+		}
+		$optioon = array(
+				'conditions' => array(
+						'Package.project_id' => $project_id,	// 同一プロジェクトかつ
+						'Package.is_del' => 0,
+						'Package.is_blog' => 0,
+						'Package.status_cd' => array(			// ステータスが生きているもの
+								Status::STATUS_CD_PACKAGE_READY,	/**  パッケージ準備CD */
+								Status::STATUS_CD_PACKAGE_ENTRY,	/**  パッケージ登録CD */
+								Status::STATUS_CD_APPROVAL_REQUEST,	/**  承認依頼CD */
+								Status::STATUS_CD_APPROVAL_OK,		/**  承認許可CD */
+								Status::STATUS_CD_RELEASE_RESERVE,	/**  公開予約CD */
+								Status::STATUS_CD_RELEASE_NOW,
+								Status::STATUS_CD_RELEASE_ERROR,
+								Status::STATUS_CD_RELEASE_REJECT,
+								Status::STATUS_CD_RELEASE_READY
+						),
+				),
+				'recursive' => -1
+		);
+
+		$packages = $this->Package->find('all', $optioon);
+	
+		$html = "";
+		if (count($packages) > 0) {
+			$html = <<< EOT
+<div class="maxH160">
+	<table class="table table-hover">
+		<thead>
+			<tr>
+				<th>#</th>
+				<th>パッケージ名</th>
+				<th>公開状態</th>
+			</tr>
+		</thead>
+		<tbody>
+EOT;
+			foreach($packages as $package){
+				$status_name = Status::getName($package['Package']['status_cd']);
+	
+				$html .= <<< EOT
+			<tr>
+				<td>{$package['Package']['id']}</td>
+				<td>{$package['Package']['package_name']}</td>
+				<td>{$status_name}</td>
+			</tr>
+EOT;
+			}
+			$html .= <<< EOT
+		</tbody>
+	</table>
+</div>
+EOT;
+		}
+	
+		return $html;
+	}	
+	
 
 	/**
 	 * BLOGパッケージ登録チェック（Ajax）
@@ -574,15 +640,16 @@ class PackagesController extends AppController {
 
 	/**
 	 * パッケージ登録（通常）
-	 * @author $project_id プロジェクトID
+	 * @param $project_id プロジェクトID
 	 */
 	public function insert($project_id = '') {
 
+		$this->layout = "package_add";
 		// GUIDチェック
 		if( guidChkUtil::chkGUID() == false ){
 			throw new NoDataException( MsgConstants::ERROR_GUID );
 		}
-		
+
 		if ($this->request->is('post') == False) {
 			// 入力なし(NG)
 			throw new NoDataException( MsgConstants::ERROR_NO_DATA );
@@ -591,7 +658,7 @@ class PackagesController extends AppController {
 			// 入力なし(NG)
 			throw new NoDataException( MsgConstants::ERROR_NO_DATA );
 		}
-		
+
 		// 権限チェック
 		$user_id = $this->Auth->user("id");
 		$roll_cd = $this->Auth->user("roll_cd");
@@ -610,7 +677,7 @@ class PackagesController extends AppController {
 				throw new NoDataException( MsgConstants::ERROR_AUTH );
 			}
 		}
-		
+
 		// プロジェクト
 		$projects = $this->Project->find('first',  array( 'conditions' => array('Project.id' => $project_id), 'recursive' => -1 ));
 		if ( count($projects) == 0 ) {
@@ -618,19 +685,19 @@ class PackagesController extends AppController {
 			throw new NoDataException( MsgConstants::ERROR_NO_DATA );
 		}
 		$this->set('project', $projects);
-		
+
 		if(isset($this->request->data['Package']['project_id']) == false){
 			// パラメタ落ち・送信ファイルが過大と判断(NG)
 			$this->Package->invalidate("contents_file_name", "コンテンツファイルが大きすぎます。");
 			return $this->render("add");
 		}
-		
+
 		if($project_id != $this->request->data['Package']['project_id']){
 			// GETとPOSTのproject_idの値が違う(NG)
 			throw new NoDataException( MsgConstants::ERROR_NO_DATA );
 		}
-		
-		
+
+
 		//
 		// validation
 		$this->Package->set( $this->request->data );
@@ -744,11 +811,12 @@ class PackagesController extends AppController {
 	 */
 	public function blog_insert() {
 
+		$this->layout = "package_add";
 		// GUIDチェック
 		if( guidChkUtil::chkGUID() == false ){
 			throw new NoDataException( MsgConstants::ERROR_GUID );
 		}
-		
+
 		@$project_id = $this->request->data['Package']['project_id'];
 		// パラメタチェック
 		if($project_id == ""){
@@ -760,12 +828,12 @@ class PackagesController extends AppController {
 		////////////////////////////////////////////////////////
 		$this->authorityChkComponent = new AuthorityChkComponent();
 		if( $this->authorityChkComponent->authProject($project_id) == False ){
-		
+
 			// 必要権限がない場合にはエラー表示
 			throw new NoDataException( MsgConstants::ERROR_AUTH );
 		}
-		
-		
+
+
 		////////////////////////////////////////////////////////
 		// 他パッケージチェック
 		////////////////////////////////////////////////////////
@@ -781,33 +849,15 @@ class PackagesController extends AppController {
 				,Status::STATUS_CD_RELEASE_NOW
 				,Status::STATUS_CD_RELEASE_ERROR
 				,Status::STATUS_CD_RELEASE_REJECT
-				
-				
+				,Status::STATUS_CD_RELEASE_READY
+
+
 		);
 		$pre_package = $this->Package->find( "count" , array( "conditions" => $conditions ) );
 		if ( $pre_package != 0 ) {
-			$errmsg = 'ブログパッケージは、同一プロジェクトの他のパッケージの公開承認が終わるまで、新しいパッケージを登録することができません。';
+			$errmsg = 'ブログパッケージは、同一プロジェクトの他のパッケージの公開が完了するまで、新しいパッケージを登録することができません。';
 			return $this->__add2Render( $project_id, $errmsg );
 		}
-		// (S) 2013.10.12 murata
-//		unset($conditions);
-//		$conditions["Package.is_del"] = "0";
-//		$conditions["Package.is_blog"] = "1";
-//		$conditions["Package.project_id"] = $project_id;
-//		$conditions["Package.status_cd"] = array(
-//				Status::STATUS_CD_PACKAGE_READY_ERROR
-//				,Status::STATUS_CD_PACKAGE_READY_REJECT
-//				,Status::STATUS_CD_APPROVAL_REJECT
-//				,Status::STATUS_CD_RELEASE_EXPIRATION
-//		);
-//		$conditions["Package.is_clean_db"] = "0";
-//		$pre_package = $this->Package->find( "count" , array( "conditions" => $conditions ) );
-//		if ( $pre_package != 0 ) {
-//			$errmsg = 'ブログパッケージは、同一プロジェクトの他のパッケージの公開承認が終わるまで、新しいパッケージを登録することができません。';
-//			return $this->__add2Render( $project_id, $errmsg );
-//		}
-		// (E) 2013.10.12
-
 
 		////////////////////////////////////////////////////////
 		// バリデーションチェック
@@ -851,7 +901,7 @@ class PackagesController extends AppController {
 			$errmsg = '記事を選択してください。';
 			return $this->__add2Render( $project_id, $errmsg );
 		}
-		
+
 		$this->Package->begin();
 
 		////////////////////////////////////////////////////////
@@ -980,7 +1030,7 @@ class PackagesController extends AppController {
 		if( guidChkUtil::chkGUID() == false ){
 			throw new NoDataException( MsgConstants::ERROR_GUID );
 		}
-		
+
 		// ユーザー取得
 		$user_id = $this->Auth->user("id");
 
@@ -991,7 +1041,7 @@ class PackagesController extends AppController {
 			// 必要権限がない場合にはエラー表示
 			throw new NoDataException( MsgConstants::ERROR_AUTH );
 		}
-		
+
 		// プロジェクトID取得
 		$optioon = array(
 				'fields' => array('project_id','is_del','status_cd'),
@@ -1004,7 +1054,7 @@ class PackagesController extends AppController {
 		}
 		$project_id=$packages['Package']['project_id'];
 
-		
+
 		// ステータスチェック
 		if(	$packages['Package']['is_del'] == 1 ||
 		    $packages['Package']['status_cd'] == Status::STATUS_CD_APPROVAL_REQUEST ||
@@ -1013,8 +1063,8 @@ class PackagesController extends AppController {
 			$this->Session->setFlash(MsgConstants::ERROR_OPTIMISTIC_LOCK);
 			return $this->redirect('/packages/view/'.$id);
 		}
-		
-		
+
+
 		while(True){
 
 			//パッケージ削除処理
@@ -1082,12 +1132,12 @@ class PackagesController extends AppController {
 		// 権限チェック
 		$this->authorityChkComponent = new AuthorityChkComponent();
 		if( $this->authorityChkComponent->authPackage($package_id) == False ){
-		
+
 			// 必要権限がない場合にはエラー表示
 			throw new NoDataException( MsgConstants::ERROR_AUTH );
 		}
-		
-		
+
+
 		// パッケージ検索
 		$optioon = array(
 				'conditions' => array('Package.id' => $package_id),
@@ -1102,13 +1152,14 @@ class PackagesController extends AppController {
 		// サイトＵＲＬ取得
 		$result = $this->Project->find('first', array(
 				'conditions' => array('Project.id' => $packages['Package']['project_id'] ),
-				'fields' => array('site_url'),
+				'fields' => array('site_url', 'public_package_id'),
 				'recursive' => -1
 		) );
 		if(count($result)==0){
 			throw new NoDataException( MsgConstants::ERROR_NO_DATA );
 		}
 		$site_url = $result["Project"]["site_url"];
+		$public_package_id = $result['Project']['public_package_id'];
 
 
 
@@ -1129,9 +1180,8 @@ class PackagesController extends AppController {
 		}
 		else{
 			$old_url = AppConstants::URL_PUBLISH ."/{$site_url}/{$old_path}";
-			$old_url_diff = AppConstants::URL_PUBLISH_DIFF ."/{$site_url}/{$old_path}";
+			$old_url_diff = AppConstants::URL_PUBLISH_DIFF ."/{$site_url}/{$public_package_id}/{$old_path}";
 		}
-
 
 		//die("OLD=".$old_url." new=".$new_url);
 
@@ -1140,6 +1190,8 @@ class PackagesController extends AppController {
 
 		$this->set("old_url",$old_url);
 		$this->set("new_url",$new_url);
+
+		$this->set("package_id",$package_id);
 
 		$this->set("type","htm");
 		$this->set("modify_flg","1");
@@ -1270,6 +1322,7 @@ return "";
 			$this->autoRender = false;
 			print "<script>parent.window.opener.location.reload(true);</script>";
 			print "<script>parent.window.close();</script>";
+			return;
 		}
 
 
@@ -1296,30 +1349,36 @@ return "";
 				'recursive' => 1,
 		);
 		$packages = $this->Package->find('first', $optioon);
-		$old_url = AppConstants::URL_PUBLISH  . $file_path;
+
+		$site_url = $packages['Project']['site_url'];
+		$public_package_id = $packages['Project']['public_package_id'];
+
+		$old_url = AppConstants::URL_PUBLISH  . "/" . $site_url . StringUtil::ltrimOnce($file_path, "/" . $site_url);
 		$new_url = AppConstants::URL_APPROVAL . "/" . $package_id . $file_path;
-		$old_url_diff = AppConstants::URL_PUBLISH_DIFF . $file_path;
+		$old_url_diff = AppConstants::URL_PUBLISH_DIFF . "/" . $site_url . "/". $public_package_id . StringUtil::ltrimOnce($file_path, "/" . $site_url);
 		$new_url_diff = AppConstants::URL_APPROVAL_DIFF . "/" . $package_id . $file_path;
-		$this->autoRender = false;
+		// $this->autoRender = false;
 
-		@$data = file($old_url_diff);
+		// @$data = file($old_url_diff);
+		$data = is_readable($old_url_diff);
 		if($data){
 
 		}else{
-			$old_url="";
+//			$old_url="";
 		}
 
-		$this->autoRender = true;
-		$this->autoRender = false;
+		// $this->autoRender = true;
+		// $this->autoRender = false;
 		$data ="";
-		@$data = file($new_url_diff);
+		// @$data = file($new_url_diff);
+		$data = is_readable($new_url_diff);
 		if($data){
 
 		}else{
-			$new_url="";
-			$new_url_diff="";
+//			$new_url="";
+//			$new_url_diff="";
 		}
-		$this->autoRender = true;
+		// $this->autoRender = true;
 
 
 
@@ -1337,6 +1396,7 @@ return "";
 		$this->Session->write("old_url",$old_url_diff);
 		$this->Session->write("new_url",$new_url_diff);
 
+		$this->set("package_id",$package_id);
 		$this->set("old_url",$old_url);
 		$this->set("new_url",$new_url);
 
@@ -1357,18 +1417,26 @@ return "";
 			case "htm":
 				$type = "htm";
 				break;
-			case "txt":
-			case "css":
-			case "js":
-				$type = "txt";
-				break;
 			case "jpg":
+			case "jpeg":
 			case "png":
 			case "gif":
+			case "tif":
+			case "tiff":
+			case "jfif":
 			case "bmp":
+			case "pdf":
+			case "xls":
+			case "xlsx":
+			case "doc":
+			case "docx":
+			case "ppt":
+			case "pptx":
+				$type = "img";
+				break;
 			default:
 				//$this->render('diff_img');
-				$type = "img";
+				$type = "txt";
 				break;
 		}
 		$this->set("type",$type);
@@ -1379,13 +1447,41 @@ return "";
 	 * HTMLタグ等削除表示
 	 * @param $target ターゲット番号
 	 */
-	public function strip($target) {
+	public function strip($target, $package_id) {
 
 		$this->autoRender = false;
 
 		$target_url = $this->Session->read($target . "_url");
 
 		if ($target_url !=""){
+			if(is_readable($target_url) == false){
+				return false;
+			}
+
+			exec(AppConstants::TEXT_CONVERTER_PATH . ' "' . $target_url . '"', $output, $return_code);
+			if ($return_code == 0)
+			{
+				@$data = file($output[0]);
+				unlink($output[0]);
+				foreach ($data as &$line_data) {
+					switch($target){
+						case "old":
+							$line_data = str_replace(AppConstants::URL_PUBLISH                                 ,AppConstants::HOME_URL,$line_data);
+							$line_data = str_replace(AppConstants::URL_HOST_REPLACE_STAGING                    ,AppConstants::URL_HOST_REPLACE_PUBLISH,$line_data);
+							$line_data = str_replace(AppConstants::URL_PATH_REPLACE_STAGING                    ,AppConstants::URL_PATH_REPLACE_PUBLISH,$line_data);
+							$line_data = str_replace(AppConstants::URL_HOST_REPLACE_ORIGINAL_2                 ,AppConstants::URL_HOST_REPLACE_PUBLISH,$line_data);
+							break;
+						case "new":
+							$line_data = str_replace(AppConstants::URL_APPROVAL .              "/{$package_id}",AppConstants::HOME_URL,$line_data);
+							$line_data = str_replace(AppConstants::URL_HOST_REPLACE_APPROVAL . "/{$package_id}",AppConstants::URL_HOST_REPLACE_PUBLISH,$line_data);
+							$line_data = str_replace(AppConstants::URL_PATH_REPLACE_APPROVAL . "/{$package_id}",AppConstants::URL_PATH_REPLACE_PUBLISH,$line_data);
+							$line_data = str_replace(AppConstants::URL_HOST_REPLACE_ORIGINAL_2                 ,AppConstants::URL_HOST_REPLACE_PUBLISH,$line_data);
+							break;
+					}
+				}
+				print implode('', $data);
+				return;
+			}
 
 			@$data = file($target_url);
 			if($data===false){
@@ -1396,6 +1492,22 @@ return "";
 
 			$source_html = "";
 			if($data){
+				foreach ($data as &$line_data) {
+					switch($target){
+						case "old":
+							$line_data = str_replace(AppConstants::URL_PUBLISH                                 ,AppConstants::HOME_URL,$line_data);
+							$line_data = str_replace(AppConstants::URL_HOST_REPLACE_STAGING                    ,AppConstants::URL_HOST_REPLACE_PUBLISH,$line_data);
+							$line_data = str_replace(AppConstants::URL_PATH_REPLACE_STAGING                    ,AppConstants::URL_PATH_REPLACE_PUBLISH,$line_data);
+							$line_data = str_replace(AppConstants::URL_HOST_REPLACE_ORIGINAL_2                 ,AppConstants::URL_HOST_REPLACE_PUBLISH,$line_data);
+							break;
+						case "new":
+							$line_data = str_replace(AppConstants::URL_APPROVAL .              "/{$package_id}",AppConstants::HOME_URL,$line_data);
+							$line_data = str_replace(AppConstants::URL_HOST_REPLACE_APPROVAL . "/{$package_id}",AppConstants::URL_HOST_REPLACE_PUBLISH,$line_data);
+							$line_data = str_replace(AppConstants::URL_PATH_REPLACE_APPROVAL . "/{$package_id}",AppConstants::URL_PATH_REPLACE_PUBLISH,$line_data);
+							$line_data = str_replace(AppConstants::URL_HOST_REPLACE_ORIGINAL_2                 ,AppConstants::URL_HOST_REPLACE_PUBLISH,$line_data);
+							break;
+					}
+				}
 				$source_html = implode('', $data);
 			}
 
@@ -1495,23 +1607,47 @@ return "";
 	/**
 	 * ファイル取得表示
 	 * @param $target 指定セッション番号
+	 * @param $package_id パッケージＩＤ
+	 *
 	 * @author hsuzuki
 	 */
-	public function getdata($target='') {
+	public function getdata($target='',$package_id='') {
+
+		$this->autoRender = false;
 
 		$target_url = $this->Session->read($target . "_url");
 		if ($target_url !=""){
 
-			$this->autoRender = false;
+			if(is_readable($target_url)==false){
+				return false;
+			}
 			@$data = file($target_url);
+
 			$source_html = "";
 			if($data){
 				$source_html = implode('', $data);
 			}
 			$source_txt = $source_html;
+
+			switch($target){
+				case "old":
+					$source_txt = str_replace(AppConstants::URL_PUBLISH                                 ,AppConstants::HOME_URL,$source_txt);
+					$source_txt = str_replace(AppConstants::URL_HOST_REPLACE_STAGING                    ,AppConstants::URL_HOST_REPLACE_PUBLISH,$source_txt);
+					$source_txt = str_replace(AppConstants::URL_PATH_REPLACE_STAGING                    ,AppConstants::URL_PATH_REPLACE_PUBLISH,$source_txt);
+					$source_txt = str_replace(AppConstants::URL_HOST_REPLACE_ORIGINAL_2                  ,AppConstants::URL_HOST_REPLACE_PUBLISH,$source_txt);
+					break;
+				case "new":
+					$source_txt = str_replace(AppConstants::URL_APPROVAL .              "/{$package_id}",AppConstants::HOME_URL,$source_txt);
+					$source_txt = str_replace(AppConstants::URL_HOST_REPLACE_APPROVAL . "/{$package_id}",AppConstants::URL_HOST_REPLACE_PUBLISH,$source_txt);
+					$source_txt = str_replace(AppConstants::URL_PATH_REPLACE_APPROVAL . "/{$package_id}",AppConstants::URL_PATH_REPLACE_PUBLISH,$source_txt);
+					$source_txt = str_replace(AppConstants::URL_HOST_REPLACE_ORIGINAL_2                  ,AppConstants::URL_HOST_REPLACE_PUBLISH,$source_txt);
+					break;
+			}
 		}else{
 			$source_txt="";
 		}
+
+
 
 		print $source_txt;
 	}
@@ -1611,7 +1747,7 @@ return "";
 		return $mt_entry_pub_buk;
 	}
 
-	
+
 	/**
 	 * MTの変更記事チェック
 	 *
@@ -1620,7 +1756,7 @@ return "";
 	 * @author hsuzuki
 	 */
 	private function __getMtEntryChg($entry_id ){
-	
+
 		$optioon = array(
 				'conditions' => array(
 					'entry_id' => $entry_id,
@@ -1636,8 +1772,8 @@ return "";
 			return true;
 		}
 	}
-	
-	
+
+
 
 	/**
 	 * バッチキューテーブルへ登録を行います。
@@ -1676,53 +1812,70 @@ return "";
 
 	/***************************************************/
 
-	/**
-	 * ??使用箇所不明
-	 *
-	 * @param unknown $id
-	 * @return unknown
-	 */
-	public function mt_get_by_key($id) {
-
-		//トランザクション開始
-		//$this->EditMtDb->beginTransaction();
-
-		try{
-
-			//キー検索SQL
-			$str_sql="SELECT entry_id AS ID,";
-			$str_sql=$str_sql."date_format(entry_modified_on, '%Y/%m/%d %k:%i') as MODIFIED,";
-			$str_sql=$str_sql."entry_title  AS SUBJECT,";
-			$str_sql=$str_sql."entry_text  AS CONTENS,";
-			$str_sql=$str_sql."entry_text_more  AS CONTENS_MORE";
-
-			$str_sql=$str_sql." FROM mt_entry ";
-			$str_sql=$str_sql." WHERE entry_id =".$id;
-
-			$rs = $this->EditMtDb->queryFetch($str_sql);
-
-			//コミット
-			$this->EditMtDb->commit();
-		}catch (Exception $e){
-			// 例外が発生したのでロールバック
-			$this->EditMtDb->rollBack();
-			echo 'is rollbacked.';
-			echo 'SQL='.$str_sql;
-
-			$result = AppConstants::RESULT_CD_FAILURE;
+	static function compare_path($path1, $path2) {
+		$path_array1 = explode("\\", $path1);
+		$path1_depth = count($path_array1);
+		$path_array2 = explode("\\", $path2);
+		$path2_depth = count($path_array2);
+		$depth = min($path1_depth, $path2_depth) - 1;
+		for($i = 0; $i < $depth; $i++) {
+			$cmp = strcmp($path_array1[$i], $path_array2[$i]);
+			if($cmp !== 0) {
+				return $cmp;
+			}
 		}
-
-		//データベースサーバへの接続の切断
-		$this->EditMtDb->close();
-
-		//DB情報を出力エリアにセット
-
-
-		//DIE(var_dump($rs));
-		return  $rs;
-		//return  $blogentry;
-
+		if ($path1_depth === $path2_depth) {
+			return strcmp($path_array1[$path1_depth - 1], $path_array2[$path2_depth - 1]);
+		}
+		return $path2_depth - $path1_depth;
 	}
 
+	/**
+	 * 公開差し戻し処理
+	 * @param unknown $id
+	 */
+	public function restore($id) {
+
+		$authorityChkComponent = new AuthorityChkComponent();
+		if($authorityChkComponent->authPackage($id) == False) {
+			throw new NoDataException(MsgConstants::ERROR_AUTH);
+		}
+
+		if(guidChkUtil::chkGUID() == false) {
+			return $this->redirect('/packages/view/'.$id);
+		}
+
+		$this->Package->begin();
+
+		if ($id !== $this->Package->getPriviousVersionPackageId($id)) {
+			$this->Package->rollback();
+			return $this->redirect('/packages/view/' . $id);
+		}
+
+		$user_id = $this->Auth->user('id');
+
+		$package = $this->Package->findById($id);
+		$package['Package']['modified'] = null;
+		$package['Package']['modified_user_id'] = $user_id;
+		$package['Package']['public_user_id'] = $user_id;
+		$package['Package']['public_reservation_datetime'] = date('Y-m-d H:i:s');
+		$package['Package']['status_cd'] = Status::STATUS_CD_RELEASE_NOW;
+		if ($this->Package->save($package) == false) {
+			$this->Package->rollback();
+			return $this->redirect('/packages/view/'.$id);
+		} 
+
+		$this->BatchQueue->set( "created_user_id" , $user_id  );
+		$this->BatchQueue->set( "modified_user_id" , $user_id  );
+		$this->BatchQueue->set( "batch_cd" , Batch::BATCH_CD_RESTORE );
+		$this->BatchQueue->set( "package_id" , $id  );
+
+		if ($this->BatchQueue->save() == false) {
+			$this->Package->rollback();
+		} else {
+			$this->Package->commit();
+		}
+		return $this->redirect('/packages/view/'.$id);
+	}
 }
 ?>

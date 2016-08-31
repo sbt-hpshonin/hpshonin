@@ -57,6 +57,13 @@ class BatchCreatePackagePublishController extends BatchPackageController {
 		$site_url = $package['Project']['site_url'];
 		$this->log('サイトURL：[' . $site_url . ']', LOG_DEBUG);
 
+		// 公開されているパッケージID
+		$public_package_id = $package['Project']['public_package_id'];
+		$this->log('公開パッケージID：[' . $public_package_id . ']', LOG_DEBUG);
+		if (is_null($public_package_id)) {
+			$public_package_id = 0;
+		}
+		
 		// パッケージ用フォルダを生成
 		$upload_path = AppConstants::DIRECTOR_UPLOAD_PATH;
 		$this->log('パッケージ用フォルダ：[' . $upload_path . ']', LOG_DEBUG);
@@ -78,7 +85,7 @@ class BatchCreatePackagePublishController extends BatchPackageController {
 		$this->log('承認用フォルダ：[' . $approval_path . ']', LOG_DEBUG);
 
 		// ステージング用フォルダを生成
-		$staging_path = AppConstants::DIRECTOR_STAGING_PATH . DS . $site_url;
+		$staging_path = AppConstants::DIRECTOR_STAGING_PATH . DS . $site_url . DS . $public_package_id;
 		if (FileUtil::mkdir($staging_path) === false) {
 			$this->log('フォルダの作成に失敗しました。フォルダ名：[' . $staging_path . ']', LOG_ERR);
 			return false;
@@ -119,7 +126,10 @@ class BatchCreatePackagePublishController extends BatchPackageController {
 			$this->log('  展開先     ：[' . $work_path . ']', LOG_ERR);
 			// メッセージを設定
 			$this->message = MsgConstants::ERROR_NOT_OPEN_PACKAGE;
-			return false; // 業務エラー
+			// 2013.10.28 H.Suzuki Changed
+			// return false; // 業務エラー
+			return true; // 業務エラー
+			// 2013.10.28 H.Suzuki Changed END
 		}
 
 		// 展開したフォルダのルートがサイトURLとなっているかチェック
@@ -127,7 +137,10 @@ class BatchCreatePackagePublishController extends BatchPackageController {
 			$this->log('フォルダが存在しません。フォルダ名：[' . $work_path . ']', LOG_ERR);
 			// メッセージを設定
 			$this->message = MsgConstants::ERROR_WRONG_SITE_URL;
-			return false; // 業務エラー
+			// 2013.10.28 H.Suzuki Changed
+			// return false; // 業務エラー
+			return true; // 業務エラー
+			// 2013.10.28 H.Suzuki Changed END
 		}
 
 		// ------------------------------------------------------------------
@@ -152,28 +165,107 @@ class BatchCreatePackagePublishController extends BatchPackageController {
 		$this->log('ファイルリスト↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑', LOG_DEBUG);
 
 		// ファイル名の妥当性チェック
+		$extentions = explode(",", AppConstants::BAN_EXT_LIST);
 		for ($i = 0; $i < count($file_list); $i++) {
 			$file = $file_list[$i];
 			if (StringUtil::validForSiteUrl($file) === false) {
 				$this->log('URLとして使用できないファイルが存在します。', LOG_WARNING);
 				$this->log('  ファイル名：[' . $file . ']', LOG_WARNING);
 				// メッセージを設定
-				$this->message = StringUtil::getMessage(MsgConstants::ERROR_WRONG_CHAR , '/' . $site_url . '/' . $file);
-				return false; // 業務エラー
+				$this->message = StringUtil::getMessage(MsgConstants::ERROR_WRONG_CHAR , '/' . $site_url . '/' . str_replace("\\", "/", $file));
+				// 2013.10.28 H.Suzuki Changed
+				// return false; // 業務エラー
+				return true; // 業務エラー
+				// 2013.10.28 H.Suzuki Changed END
+			}
+
+			// ファイル拡張子がNGだった場合
+			if (in_array(strtolower(FileUtil::getExtention($file)), $extentions)) {
+				$this->log('アップロードできない拡張子のファイルが存在します。', LOG_ERR);
+				$this->log('  ファイル名：[' . $file . ']', LOG_ERR);
+				$this->message = StringUtil::getMessage(MsgConstants::ERROR_WRONG_FILE_EXT , '/' . $site_url . '/' . str_replace("\\", "/", $file));
+
+				return true; // 業務エラー
 			}
 		}
 
 		// 作業用フォルダとステージング用フォルダを比較
 
+		// -----------------------------------
+		// 3. パス置換処理
+		// -----------------------------------
+		$this->log('3. パス置換処理(ホスト名)', LOG_DEBUG);
+
+		// フォルダ配下一括コピー（ワーク用フォルダ ⇒ 承認用フォルダ）
+		if (FileUtil::dirCopy($work_path, $approval_path) === false) {
+			$this->log('フォルダのコピーに失敗しました。', LOG_ERR);
+			$this->log('  コピー元：[' . $work_path . ']', LOG_ERR);
+			$this->log('  コピー先：[' . $approval_path . ']', LOG_ERR);
+			return false;
+		}
+
+		// 登録パッケージの変換処理
+		// 置換前(http://(編集サイトのURL)/(サイトのURL)/)
+		$tartget = AppConstants::URL_HOST_REPLACE_ORIGINAL
+		. self::SLASH . $site_url
+		. self::SLASH;
+		$this->log('置換前：[' . $tartget . ']', LOG_DEBUG);
+
+		// 置換後列(http://(承認サイトのURL)/(パッケージID)/(サイトURL)/)
+		$replace = AppConstants::URL_HOST_REPLACE_STAGING
+		. self::SLASH . $site_url
+		. self::SLASH;
+		$this->log('置換後：[' . $replace . ']', LOG_DEBUG);
+
+		// htmlファイルを一括置換
+		if (FileUtil::replaceContentsAll($approval_path, $tartget, $replace, self::EXT_HTML) == false) {
+			$this->log('htmlファイルを一括置換に失敗しました。', LOG_ERR);
+			$this->log('  対象フォルダ：[' . $approval_path . ']', LOG_ERR);
+			return false;
+		}
+
+		$this->log('3. パス置換処理(サイトパス)', LOG_DEBUG);
+
+		// 登録パッケージの変換処理
+		// 置換前((編集サイトのパス)/(サイトのURL)/)
+		$tartget = AppConstants::URL_PATH_REPLACE_ORIGINAL
+		. self::SLASH . $site_url
+		. self::SLASH;
+		$this->log('置換前：[' . $tartget . ']', LOG_DEBUG);
+
+		// 置換後列((承認サイトのパス)/(パッケージID)/(サイトURL)/)
+		$replace = AppConstants::URL_PATH_REPLACE_STAGING
+		. self::SLASH . $site_url
+		. self::SLASH;
+		$this->log('置換後：[' . $replace . ']', LOG_DEBUG);
+
+		// htmlファイルを一括置換
+		if (FileUtil::replaceContentsAll($approval_path, $tartget, $replace, self::EXT_HTML) == false) {
+			$this->log('htmlファイルを一括置換に失敗しました。', LOG_ERR);
+			$this->log('  対象フォルダ：[' . $approval_path . ']', LOG_ERR);
+			return false;
+		}
+
+
 		// 差異のないファイルを取得
-		$file = FileUtil::getNoDiffContents($file_list, $work_path, $staging_path);
+		$file = FileUtil::getNoDiffContents($file_list, $approval_path, $staging_path);
 		if (!empty($file)) {
 			$this->log('変更のないファイルが存在します。', LOG_WARNING);
 			$this->log('  ファイル名：[' . $file . ']', LOG_WARNING);
 			// メッセージを設定
 			$file = '/' . $site_url . '/' . str_replace(DS, '/', $file);
 			$this->message = StringUtil::getMessage(MsgConstants::ERROR_NO_CHANGE_FILE, $file);
-			return false; // 業務エラー
+			// 2013.10.28 H.Suzuki Changed
+			// return false; // 業務エラー
+			// 承認用フォルダをクリーンアップ
+
+			if (FileUtil::rmdirAll($approval_path) === false) {
+				$this->log('フォルダの削除に失敗しました。', LOG_ERR);
+				$this->log('  対象フォルダ名：[' . $approval_path . ']', LOG_ERR);
+			}
+
+			return true; // 業務エラー
+			// 2013.10.28 H.Suzuki Changed END
 		}
 
 		// ----------------------
@@ -266,10 +358,31 @@ class BatchCreatePackagePublishController extends BatchPackageController {
 			return false;
 		}
 
+		// 承認用サイトへの置換処理
+		parent::replacePathStagingToApproval($approval_path, $site_url);
+		parent::replacePathOriginalToApproval($approval_path, $site_url);
+		
 		$this->log('公開パッケージ作成(内部) 成功!', LOG_DEBUG);
 		return true; // 成功
 	}
 
+	/**
+	 * 成功時後実行
+	 * 
+	 * @return boolean 成否
+	 */
+	function execute_after_success() {
+		return true;
+	}
+	
+	/**
+	 * 失敗時後実行
+	 * 
+	 * @return boolean 成否
+	 */
+	function execute_after_failure() {
+		return true;
+	}
 }
 
 ?>

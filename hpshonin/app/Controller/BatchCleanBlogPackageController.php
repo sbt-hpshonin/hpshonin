@@ -44,9 +44,9 @@ class BatchCleanBlogPackageController extends BatchAppController {
 		// ロールバック対象のプロジェクトIDを取得
 		$target_list = $this->Package->getCleaningTargetListForRollbackMt();
 
-		$this->log('対象パッケージID↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓');
-		$this->log($target_list);
-		$this->log('対象パッケージID↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
+		$this->log('対象パッケージID↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓', LOG_DEBUG);
+		$this->log($target_list, LOG_DEBUG);
+		$this->log('対象パッケージID↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑', LOG_DEBUG);
 
 		if($target_list === false) {
 			$this->log('対象パッケージの取得に失敗しました。', LOG_ERR);

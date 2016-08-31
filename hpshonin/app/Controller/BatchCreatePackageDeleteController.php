@@ -56,7 +56,14 @@ class BatchCreatePackageDeleteController extends BatchPackageController {
 		$site_url = $package['Project']['site_url'];
 		$this->log('サイトURL：[' . $site_url . ']', LOG_DEBUG);
 
-        // パッケージ用フォルダを生成
+		// 公開されているパッケージID
+		$public_package_id = $package['Project']['public_package_id'];
+		$this->log('公開パッケージID：[' . $public_package_id . ']', LOG_DEBUG);
+		if (is_null($public_package_id)) {
+			$public_package_id = 0;
+		}
+		
+		// パッケージ用フォルダを生成
 		$upload_path = AppConstants::DIRECTOR_UPLOAD_PATH;
 		$this->log('パッケージ用フォルダ：[' . $upload_path . ']', LOG_DEBUG);
 
@@ -77,7 +84,7 @@ class BatchCreatePackageDeleteController extends BatchPackageController {
 		$this->log('承認用フォルダ：[' . $approval_path . ']', LOG_DEBUG);
 
 		// ステージング用フォルダを生成
-		$staging_path = AppConstants::DIRECTOR_STAGING_PATH . DS . $site_url;
+		$staging_path = AppConstants::DIRECTOR_STAGING_PATH . DS . $site_url . DS . $public_package_id;
 		if (FileUtil::mkdir($staging_path) === false) {
 			$this->log('フォルダの作成に失敗しました。フォルダ名：[' . $staging_path . ']', LOG_ERR);
 			return false;
@@ -111,7 +118,10 @@ class BatchCreatePackageDeleteController extends BatchPackageController {
 			$this->log('  展開先       ：[' . $work_path . ']', LOG_ERR);
 			// メッセージを設定
 			$this->message = MsgConstants::ERROR_NOT_OPEN_PACKAGE;
-			return false; // 業務エラー
+			// 2013.10.28 H.Suzuki Changed
+			// return false; // 業務エラー
+			return true; // 業務エラー
+			// 2013.10.28 H.Suzuki Changed END
 		}
 
 		// 削除指示ファイルの存在確認
@@ -120,7 +130,10 @@ class BatchCreatePackageDeleteController extends BatchPackageController {
 			$this->log('  ファイル名：[' . $work_path . DS . self::DELETE_FILE_NAME . ']', LOG_ERR);
 			// メッセージを設定
 			$this->message = MsgConstants::ERROR_WRONG_FILENAME;
-			return false; // 業務エラー
+			// 2013.10.28 H.Suzuki Changed
+			// return false; // 業務エラー
+			return true; // 業務エラー
+			// 2013.10.28 H.Suzuki Changed END
 		}
 
 		// 削除対象ファイルリストを取得
@@ -135,7 +148,10 @@ class BatchCreatePackageDeleteController extends BatchPackageController {
 				$this->log('セパレータに「\」が使用されています。ファイル名：[' . $file . ']', LOG_ERR);
 				// メッセージを設定
 				$this->message = StringUtil::getMessage(MsgConstants::ERROR_WRONG_CHAR_YEN, $file);
-				return false; // 業務エラー
+				// 2013.10.28 H.Suzuki Changed
+				// return false; // 業務エラー
+				return true; // 業務エラー
+				// 2013.10.28 H.Suzuki Changed END
 			}
 		}
 
@@ -146,7 +162,10 @@ class BatchCreatePackageDeleteController extends BatchPackageController {
 					$this->log('ファイル名に「..」が使用されています。ファイル名：[' . $file . ']', LOG_ERR);
 					// メッセージを設定
 					$this->message = StringUtil::getMessage(MsgConstants::ERROR_WRONG_CHAR_POINT, $file);
-					return false; // 業務エラー
+					// 2013.10.28 H.Suzuki Changed
+					// return false; // 業務エラー
+					return true; // 業務エラー
+					// 2013.10.28 H.Suzuki Changed END
 				}
 			}
 		}
@@ -163,13 +182,21 @@ class BatchCreatePackageDeleteController extends BatchPackageController {
 		$this->log('ファイルリスト②↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑', LOG_DEBUG);
 
 		// 削除対象ファイルの存在確認
+		$cnt = 0;
 		foreach ($remove_file_list as $remove_file) {
 			if (FileUtil::exists($staging_path . DS . $remove_file) === false) {
 				$this->log('削除対象ファイルが存在しません。ファイル名：[' . $staging_path . DS . $remove_file . ']', LOG_ERR);
 				// メッセージを設定
 				$this->message = StringUtil::getMessage(MsgConstants::ERROR_NOT_EXISTS, '/' . $site_url . '/' . str_replace('\\', '/', $remove_file));
-				return false;
+				// 2013.10.28 H.Suzuki Changed
+				// return false; // 業務エラー
+				return true; // 業務エラー
+				// 2013.10.28 H.Suzuki Changed END
 			}
+			if (is_dir($staging_path . DS . $remove_file)) {
+				$remove_file_list[$cnt] = $remove_file . DS;
+			}
+			$cnt++;
 		}
 
 // 2013.10.17 H.Suzuki Deleted
@@ -197,33 +224,28 @@ class BatchCreatePackageDeleteController extends BatchPackageController {
 // 2013.10.17 H.Suzuki Added
 		// 削除対象としてフォルダが指定された場合、配下のファイルも削除対象として指定する
 		$file_list_baff = array();
-		$dirbaff = $this->getDirectorPublishPath();
 		foreach ($remove_file_list as $key => $remove_file) {
 
 			// フォルダの場合のみ
 			if (is_dir($staging_path . DS . $remove_file)) {
-				$file_list_baff2 = FileUtil::getFileListFromDirAndRemoveString($staging_path . DS . $remove_file, $dirbaff);
+				$file_list_baff2 = FileUtil::getFileListFromDirAndRemoveString($staging_path . DS . $remove_file, $staging_path);
 				if(count($file_list_baff2)){
+					$file_list_baff[] = $remove_file ;
 					$file_list_baff = array_merge($file_list_baff,$file_list_baff2);
-					if($remove_file != ""){
-						$file_list_baff[] = $site_url . DS . $remove_file . DS;
-					}
-					else{
-						$file_list_baff[] = $site_url . DS;
-					}
 				}
 			}
 		}
 		foreach($file_list_baff as $key => $remove_file){
-			$file_list_baff[$key] = DS . $remove_file;
+			$file_list_baff[$key] = DS .$site_url . DS . $remove_file;
 		}
-// 2013.10.17 H.Suzuki Added END
+		// 2013.10.17 H.Suzuki Added END
 
 		// ----------------------
 		// ③ 削除ファイルを登録
 		// ----------------------
 		$this->log('③ 削除ファイルを登録', LOG_DEBUG);
 		$remove_file_list2 = FileUtil::getFileListFromFileContents2($work_path . DS . self::DELETE_FILE_NAME);
+
 // 2013.10.17 H.Suzuki Added
 		$remove_file_list2 = array_unique(array_merge($remove_file_list2,$file_list_baff));
 // 2013.10.17 H.Suzuki Added END
@@ -314,10 +336,32 @@ class BatchCreatePackageDeleteController extends BatchPackageController {
 			// 2013.10.17 H.Suzuki Changed END
 		}
 
+		// 承認用サイトへの置換処理
+		parent::replacePathStagingToApproval($approval_path, $site_url);
+				
 		$this->log('削除パッケージ作成(内部) 成功', LOG_DEBUG);
 		return true; // 成功
 	}
 
+
+	/**
+	 * 成功時後実行
+	 * 
+	 * @return boolean 成否
+	 */
+	function execute_after_success() {
+		return true;
+	}
+	
+	/**
+	 * 失敗時後実行
+	 * 
+	 * @return boolean 成否
+	 */
+	function execute_after_failure() {
+		return true;
+	}
+	
 	/**
 	 * 包有するか判定します。
 	 *

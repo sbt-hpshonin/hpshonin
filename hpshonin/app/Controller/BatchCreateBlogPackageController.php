@@ -72,6 +72,13 @@ class BatchCreateBlogPackageController extends BatchPackageController {
 		$site_url = $package['Project']['site_url'];
 		$this->log('サイトURL：[' . $site_url . ']', LOG_DEBUG);
 
+		// 公開されているパッケージID
+		$public_package_id = $package['Project']['public_package_id'];
+		$this->log('公開パッケージID：[' . $public_package_id . ']', LOG_DEBUG);
+		if (is_null($public_package_id)) {
+			$public_package_id = 0;
+		}
+		
 		// MTプロジェクトを取得
 		$mtProject = $this->MtProject->getMtProject($project_id);
 		if(empty($mtProject)) {
@@ -104,7 +111,7 @@ class BatchCreateBlogPackageController extends BatchPackageController {
 		$this->log('承認用フォルダ：[' . $approval_path . ']', LOG_DEBUG);
 
 		// ステージング用フォルダを生成
-		$staging_path = AppConstants::DIRECTOR_STAGING_PATH . DS . $site_url . DS . self::BLOG;
+		$staging_path = AppConstants::DIRECTOR_STAGING_PATH . DS . $site_url . DS . $public_package_id . DS . self::BLOG;
 		if (FileUtil::mkdir($staging_path) === false) {
 			$this->log('フォルダの作成に失敗しました。フォルダ名：[' . $staging_path . ']', LOG_ERR);
 			return false;
@@ -119,6 +126,52 @@ class BatchCreateBlogPackageController extends BatchPackageController {
 			$this->log('テーブルの更新に失敗しました。', LOG_ERR);
 			return false;
 		}
+		$package_id = $this->id;
+
+		// 選択から漏れた記事追加処理
+		$mt_entry_app_baks = $this->__getMtEntryAddList($project_id , $package_id);
+		$this->log("選択から漏れた追加記事:" . count($mt_entry_app_baks)  . "件", LOG_DEBUG);
+		foreach($mt_entry_app_baks as $mt_entry) {
+			$insertdata['is_del'] = AppConstants::FLAG_FALSE;
+			$insertdata['created_user_id'] = AppConstants::USER_ID_SYSTEM;
+			$insertdata['modified_user_id'] = AppConstants::USER_ID_SYSTEM;
+			$insertdata['package_id'] = $package_id;
+			$insertdata['subject'] = $mt_entry['eab']['entry_title'];
+			$insertdata['contents']  =$mt_entry['eab']['entry_text'];
+			$insertdata['post_modified'] = $mt_entry['eab']['entry_modified_on'];
+			$insertdata['contents_more'] = $mt_entry['eab']['entry_text_more'];
+			$insertdata['edit_mt_post_id'] = $mt_entry['eab']['entry_id'];
+			$insertdata['modify_flg'] = AppConstants::MODIFY_FLG_ADD ;
+
+			$this->MtPost->create();
+			if(!$this->MtPost->save($insertdata, false)) {
+				$this->log('テーブルの更新に失敗しました。', LOG_ERR);
+				return false;
+			}
+		}
+
+		// 選択から漏れた記事追加処理
+		$mt_entry_app_baks = $this->__getMtEntryModifyList($project_id, $package_id);
+		$this->log("選択から漏れた更新記事:" . count($mt_entry_app_baks)  . "件", LOG_DEBUG);
+		foreach($mt_entry_app_baks as $mt_entry) {
+			$insertdata['is_del'] = AppConstants::FLAG_FALSE;
+			$insertdata['created_user_id'] = AppConstants::USER_ID_SYSTEM;
+			$insertdata['modified_user_id'] = AppConstants::USER_ID_SYSTEM;
+			$insertdata['package_id'] = $package_id;
+			$insertdata['subject'] = $mt_entry['eab']['entry_title'];
+			$insertdata['contents']  =$mt_entry['eab']['entry_text'];
+			$insertdata['post_modified'] = $mt_entry['eab']['entry_modified_on'];
+			$insertdata['contents_more'] = $mt_entry['eab']['entry_text_more'];
+			$insertdata['edit_mt_post_id'] = $mt_entry['eab']['entry_id'];
+			$insertdata['modify_flg'] = AppConstants::MODIFY_FLG_MOD ;
+
+			$this->MtPost->create();
+			if(!$this->MtPost->save($insertdata, false)) {
+				$this->log('テーブルの更新に失敗しました。', LOG_ERR);
+				return false;
+			}
+		}
+
 
 		// ------------------
 		// 2. ファイルコピー
@@ -156,23 +209,39 @@ class BatchCreateBlogPackageController extends BatchPackageController {
 		$this->log('ファイルリスト↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑', LOG_DEBUG);
 
 		// ファイル名の妥当性チェック
+		$extentions = explode(",", AppConstants::BAN_EXT_LIST);
 		for ($i = 0; $i < count($file_list); $i++) {
 			$file = $file_list[$i];
 			if (StringUtil::validForSiteUrl($file) === false) {
 				$this->log('URLとして使用できないファイルが存在します。', LOG_WARNING);
 				$this->log('  ファイル名：[' . $file . ']', LOG_WARNING);
 				// メッセージを設定
-				$this->message = StringUtil::getMessage(MsgConstants::ERROR_WRONG_CHAR , '/' . $site_url . '/' . $file);
-				return false; // 業務エラー
+				$this->message = StringUtil::getMessage(MsgConstants::ERROR_WRONG_CHAR , '/' . $site_url . '/' . self::BLOG . '/' . str_replace("\\", "/", $file));
+				return true; // 業務エラー
 			}
+
+			// ファイル拡張子がNGだった場合
+//			if (in_array(strtolower(FileUtil::getExtention($file)), $extentions)) {
+//				$this->log('アップロードできない拡張子のファイルが存在します。', LOG_ERR);
+//				$this->log('  ファイル名：[' . $file . ']', LOG_ERR);
+//				$this->message = StringUtil::getMessage(MsgConstants::ERROR_WRONG_FILE_EXT , '/' . $site_url . '/' . self::BLOG . '/' . str_replace("\\", "/", $file));
+//
+//				return true; // 業務エラー
+//			}
 		}
 
 		// 差分があるかチェック
-		if (FileUtil::hasDiffDir($work_path, $staging_path, self::EDIT_SITE_URL, self::STAGING_SITE_URL) === false) {
+		if (FileUtil::hasDiffDir($work_path, $staging_path,
+				array(self::EDIT_SITE_URL . self::SLASH . $site_url . self::SLASH,
+						AppConstants::URL_HOST_REPLACE_ORIGINAL . self::SLASH . $site_url . self::SLASH,
+						AppConstants::URL_PATH_REPLACE_ORIGINAL . self::SLASH . $site_url . self::SLASH),
+				array(self::STAGING_SITE_URL . self::SLASH . $site_url . self::SLASH,
+						AppConstants::URL_HOST_REPLACE_STAGING . self::SLASH . $site_url . self::SLASH,
+						AppConstants::URL_PATH_REPLACE_STAGING . self::SLASH . $site_url . self::SLASH)) === false) {
 			$this->log('記事内容に差異がありません。サイトURL：[' . $site_url . ']', LOG_ERR);
 			// メッセージを設定
 			$this->message = MsgConstants::ERROR_NO_CHANGE_POST_AT_ALL;
-			return false;
+			return true;
 		}
 
 		// 編集用フォルダ→承認用フォルダ
@@ -213,6 +282,50 @@ class BatchCreateBlogPackageController extends BatchPackageController {
 			return false;
 		}
 
+// (S) 2013.11.03 murata
+		$this->log('3. パス置換処理(ホスト名)', LOG_DEBUG);
+		// 置換前((編集サイトのパス)/(サイトのURL)/blog)
+		$tartget = AppConstants::URL_HOST_REPLACE_ORIGINAL
+		. self::SLASH . $site_url
+		. self::SLASH;
+		$this->log('置換前：[' . $tartget . ']', LOG_DEBUG);
+
+		// 置換後列((承認サイトのパス)/(パッケージID)/(サイトURL)/blog)
+		$replace = AppConstants::URL_HOST_REPLACE_APPROVAL
+		. self::SLASH . $this->id
+		. self::SLASH . $site_url
+		. self::SLASH;
+		$this->log('置換後：[' . $replace . ']', LOG_DEBUG);
+
+		// htmlファイルを一括置換
+		if (FileUtil::replaceContentsAll($approval_path, $tartget, $replace, self::EXT_HTML) == false) {
+			$this->log('htmlファイルを一括置換に失敗しました。', LOG_ERR);
+			$this->log('  対象フォルダ：[' . $approval_path . ']', LOG_ERR);
+			return false;
+		}
+
+		$this->log('3. パス置換処理(サイトパス)', LOG_DEBUG);
+			// 置換前((編集サイトのパス)/(サイトのURL)/blog)
+		$tartget = AppConstants::URL_PATH_REPLACE_ORIGINAL
+		. self::SLASH . $site_url
+		. self::SLASH;
+		$this->log('置換前：[' . $tartget . ']', LOG_DEBUG);
+
+		// 置換後列((承認サイトのパス)/(パッケージID)/(サイトURL)/blog)
+		$replace = AppConstants::URL_PATH_REPLACE_APPROVAL
+		. self::SLASH . $this->id
+		. self::SLASH . $site_url
+		. self::SLASH;
+		$this->log('置換後：[' . $replace . ']', LOG_DEBUG);
+
+		// htmlファイルを一括置換
+		if (FileUtil::replaceContentsAll($approval_path, $tartget, $replace, self::EXT_HTML) == false) {
+			$this->log('htmlファイルを一括置換に失敗しました。', LOG_ERR);
+			$this->log('  対象フォルダ：[' . $approval_path . ']', LOG_ERR);
+			return false;
+		}
+// (E) 2013.11.03
+
 		// -----------------
 		// 更新ファイル登録
 		// -----------------
@@ -239,10 +352,14 @@ class BatchCreateBlogPackageController extends BatchPackageController {
 			// 更新フラグ判定（'0':追加/'1':変更）
 			if (FileUtil::exists($staging_path . DS . $file_path_name)) {
 
-				if (FileUtil::hasDiff($work_path . DS . $file_path_name,
+				if (FileUtil::hasDiffArray($work_path . DS . $file_path_name,
 									  $staging_path . DS . $file_path_name,
-									  self::EDIT_SITE_URL,
-									  self::STAGING_SITE_URL)) {
+									  array(self::EDIT_SITE_URL . self::SLASH . $site_url . self::SLASH,
+									  		AppConstants::URL_HOST_REPLACE_ORIGINAL . self::SLASH . $site_url . self::SLASH,
+									  		AppConstants::URL_PATH_REPLACE_ORIGINAL . self::SLASH . $site_url . self::SLASH),
+									  array(self::STAGING_SITE_URL . self::SLASH . $site_url . self::SLASH,
+									  		AppConstants::URL_HOST_REPLACE_STAGING . self::SLASH . $site_url . self::SLASH,
+									  		AppConstants::URL_PATH_REPLACE_STAGING . self::SLASH . $site_url . self::SLASH))) {
 					$modify_flg = AppConstants::MODIFY_FLG_MOD; // 変更
 				} else {
 					$modify_flg = AppConstants::MODIFY_FLG_NO_MOD; // 変更なし
@@ -341,6 +458,24 @@ class BatchCreateBlogPackageController extends BatchPackageController {
 	}
 
 	/**
+	 * 成功時後実行
+	 *
+	 * @return boolean 成否
+	 */
+	function execute_after_success() {
+		return true;
+	}
+	
+	/**
+	 * 失敗時後実行
+	 *
+	 * @return boolean 成否
+	 */
+	function execute_after_failure() {
+		return true;
+	}
+
+	/**
 	 * 削除対象ファイルリストを取得します。
 	 *
 	 * @param  unknown $work_file_list    作業用ファイルリスト
@@ -363,6 +498,78 @@ class BatchCreateBlogPackageController extends BatchPackageController {
 		//$this->log($delete_file_list, LOG_DEBUG);
 		$this->log('getDeleteFileList end', LOG_DEBUG);
 		return $delete_file_list;
+	}
+
+
+	/**
+	 * ブログに新規に追加され、選択から漏れている記事を取得
+	 * @param unknown $project_id
+	 * @param unknown $package_id
+	 * @return mt_entry_pub_buk検索結果配列
+	 */
+	private function __getMtEntryAddList($project_id, $package_id) {
+		// 追加処理
+		$sql =
+		"	select "
+				."eab.entry_id "
+				.", eab.entry_modified_on "
+				.", eab.entry_title "
+				.", eab.entry_text "
+				.", eab.entry_text_more "
+			."from "
+				."mt_entry_app_bak eab "
+			."left join mt_entry_pub_bak epb "
+			."on eab.entry_id = epb.entry_id "
+			."left join mt_posts p "
+			."on eab.entry_id = p.edit_mt_post_id "
+			."and p.package_id = ? "
+			."join mt_projects mp "
+			."on mp.edit_mt_project_id = eab.entry_blog_id "
+			."and mp.is_del = '0' "
+			."where "
+				."mp.project_id = ? "
+			."and epb.entry_id is null "
+			."and p.id is null "
+			."and eab.entry_class = 'entry'";
+
+		return  $this->MtEntryAppBak->query($sql, array($package_id, $project_id));
+	}
+
+
+	/**
+	 * ブログで更新され、選択から漏れている記事を取得
+	 * @param unknown $package_id
+	 * @param unknown $project_id
+	 */
+	private function __getMtEntryModifyList($project_id, $package_id) {
+		 // 更新処理
+		$sql =
+			"select "
+				."eab.entry_id "
+				.", eab.entry_modified_on "
+				.", eab.entry_title "
+				.", eab.entry_text "
+				.", eab.entry_text_more "
+			."from "
+				."mt_entry_app_bak eab "
+			."inner join mt_entry_pub_bak epb "
+			."on eab.entry_id = epb.entry_id "
+			."left join mt_posts p "
+			."on eab.entry_id = p.edit_mt_post_id "
+			."and p.package_id = ? "
+			."join mt_projects mp "
+			."on mp.edit_mt_project_id = eab.entry_blog_id "
+			."and mp.is_del = '0' "
+			."where "
+				."mp.project_id = ? "
+			."and ("
+				."eab.entry_title <> epb.entry_title "
+				."or eab.entry_text <> epb.entry_text "
+				."or eab.entry_text_more <> epb.entry_text_more)"
+			."and p.id is null "
+			."and eab.entry_class = 'entry'";
+		
+		return $this->MtEntryAppBak->query($sql, array($package_id, $project_id));
 	}
 
 	/**

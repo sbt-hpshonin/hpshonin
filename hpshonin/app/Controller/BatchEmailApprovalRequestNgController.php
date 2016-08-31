@@ -67,7 +67,7 @@ class BatchEMailApprovalRequestNgController extends BatchAppController {
 		$date = date_create($package['Package']['public_due_date']);
 		$public_due_date = date_format($date,  'Y/m/d');
 		$date = date_create($package['Package']['approval_modified']);
-		$approval_modified = date_format($date, 'Y/m/d H:i');
+		$approval_modified = date_format($date, 'Y/m/d H:i:s');
 
 		$username = $package['Approval']['username'];
 		$contact_address = $package['Approval']['contact_address'];

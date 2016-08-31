@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 App::uses("FileUtil", "Lib/Utils");
 App::uses("BatchCleanPackageContentFileController", "Controller");
 App::uses("BatchCleanBlogPackageImageFileController", "Controller");
@@ -6,6 +6,7 @@ App::uses("BatchCleanProjectController", "Controller");
 App::uses("BatchCleanPublicFileController", "Controller");
 App::uses("BatchExpirationPackageController", "Controller");
 App::uses("BatchNoProjectUserController", "Controller");
+App::uses("BatchBackupController", "Controller");
 
 /**
  * 日毎バッチシェルクラス
@@ -22,6 +23,11 @@ class DailyShell extends AppShell {
 	 * ・無所属ユーザーの削除
 	 */
 	public function main() {
+		
+		// ＤＢバックアップ
+		$controller = new BatchBackupController();
+		$controller->execute();
+
 		// パッケージのコンテンツファイル削除
 		$controller = new BatchCleanPackageContentFileController();
 		$controller->execute();

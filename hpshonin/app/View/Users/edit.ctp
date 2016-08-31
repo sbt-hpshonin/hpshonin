@@ -117,8 +117,11 @@ $this->start('css');?>
 <?php $this->end(); ?>
 		<div class="row-fluid">
 			<div class="span12">
-				<div class="titlebar">ユーザー<?php if( isset($this->request->data['User']['id']) ) echo "編集"; else echo "追加";?><?php echo $this->Html->link('<i class="icon icon-question-sign icon-white"></i>ヘルプ', '/manual.pdf', array('class'=> 'pull-right' ,'target' => '_blank', "escape" => false)); ?></div>
-					<?php echo $this->Session->flash(); ?>
+				<?php 
+					if(isset($this->request->data['User']['id']) ) {$caption = "ユーザー編集"; }else {$caption = "ユーザー追加";} 
+				?>
+				<?php echo $this->Title->makeTitleBar($caption) ?>
+				<?php echo $this->Session->flash(); ?>
 
 					<div class="block">
 						<?php echo $this->Form->create('User', array('id' => 'user_edit_form','type' => 'POST')) ."\n";?>

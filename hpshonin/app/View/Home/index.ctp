@@ -20,7 +20,7 @@ $this->start('script');?>
 <?php $this->end(); ?>
 <div class="row-fluid">
 			<div class="span12">
-				<div class="titlebar">ホーム<?php echo $this->Html->link('<i class="icon icon-question-sign icon-white"></i>ヘルプ', '/manual.pdf', array('class'=> 'pull-right' ,'target' => '_blank', "escape" => false)); ?></div>
+				<?php echo $this->Title->makeTitleBar("ホーム"); ?>
 			</div>
 			<?php echo $this->Session->flash(); ?>
 		</div>

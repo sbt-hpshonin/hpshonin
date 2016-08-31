@@ -17,9 +17,6 @@
 		echo $this->Html->script('/site.js');
 
 
-		echo $this->Html->css('/debug_kit/css/debug_toolbar.css');
-		echo $this->Html->script('/debug_kit/js/jquery.js');
-		echo $this->Html->script('/debug_kit/js/js_debug_toolbar.js');
 		echo $this->Html->script('/lib/highlight/jquery.highlight-4.js');
 		echo $this->Html->script('/lib/contextmenu/jquery.contextmenu.r2.js');
 		echo $this->Html->script('/lib/selection/jquery.selection-min.js');
@@ -36,18 +33,21 @@
 var isHighlight = false;
 var strHighlight = "";
 
-$(function(){
+var isInitSrcMergely = false;
+var isInitTxtMergely = false;
 
-	mergely_init('#diff_src');
-	mergely_init('#diff_text');
-	mergely_contents('#diff_text', 'lhs', '<?php echo $this->Html->url("/packages/strip/old");?>');
-	mergely_contents('#diff_text', 'rhs', '<?php echo $this->Html->url("/packages/strip/new");?>');
-	mergely_contents('#diff_src', 'lhs', '<?php echo $this->Html->url("/packages/getdata/old");?>');
-	mergely_contents('#diff_src', 'rhs', '<?php echo $this->Html->url("/packages/getdata/new");?>');
+$(function(){
 
 	var items = [""];
 	var item_cnt = 0;
+	var g_id = "";
 
+	$(window).resize(function(){
+		id = g_id;
+		height = $(window).height() - 150;
+		$(id).attr("style","height:" + height + "px");
+	});
+	
 	$('#tabnav .taba').click(function(e){
 
 		var id = $(this).attr('href');
@@ -56,16 +56,38 @@ $(function(){
 		$(this).closest('li').addClass('active');
 
 		$('.tabc').hide();
+
+		g_id = id;
+		
+		height = $(window).height() - 150;
+		$(id).attr("style","height:" + height + "px");
+
 		$(id).show();
 
 		switch (id) {
 		case '#pane_preview':
 			break;
 		case '#pane_text':
-			$(window).trigger('resize');
+			if(!isInitTxtMergely) {
+				mergely_init('#diff_text');
+				mergely_contents('#diff_text', 'lhs', '<?php echo $this->Html->url("/packages/strip/old/{$package_id}");?>');
+				mergely_contents('#diff_text', 'rhs', '<?php echo $this->Html->url("/packages/strip/new/{$package_id}");?>');
+				menu_init('#diff_text', 'lhs');
+				menu_init('#diff_text', 'rhs');
+				isInitTxtMergely = true;
+			}
+			$('#diff_text').mergely('resize');
 			break;
 		case '#pane_src':
-			$(window).trigger('resize');
+			if (!isInitSrcMergely) {
+				mergely_init('#diff_src');
+				mergely_contents('#diff_src', 'lhs', '<?php echo $this->Html->url("/packages/getdata/old/{$package_id}");?>');
+				mergely_contents('#diff_src', 'rhs', '<?php echo $this->Html->url("/packages/getdata/new/{$package_id}");?>');
+				menu_init('#diff_src', 'lhs');
+				menu_init('#diff_src', 'rhs');
+				isInitSrcMergely = true;
+			}
+			$('#diff_src').mergely('resize');
 			break;
 		}
 
@@ -155,25 +177,6 @@ $(function(){
 		$('#iframeR').contents().find('body').append("<style>.highlight{background-color:yellow}</style>")
 	}
 
-	// ContextMenu
-	menu_init('#diff_text', 'lhs');
-	menu_init('#diff_text', 'rhs');
-	menu_init('#diff_src', 'lhs');
-	menu_init('#diff_src', 'rhs');
-
-
-	// iframeテスト
-    $('#setHighLight').click(function(){
-		try {
-			var str = $('#resultTextArea').text();
-			var str = '首都高';
-	    	var obj = $('#iframeL').contents();
-	    	obj.find('body').removeHighlight().highlight(str);
-	    } catch(e) {
-	    	alert(e.message);
-	    }
-    });
-
     // ハイライトチェック
     $('#checkHighlight').click(function() {
     	strHighlight = $('#txtHighlight').val();
@@ -181,40 +184,16 @@ $(function(){
     	isHighlight ?  setHighlightString(strHighlight) : removeHighlightString() ;
     });
 
-	// iframeのHPにスタイルを追加
-//	try {
-//		var ifmL = $('#iframeL').contents();
-//		var stl = ifmL.createElement('style');
-//		stl.text = '.highlight{background-color:yellow}';
-//		ifmL.find('head').append(stl);
-//	} catch(e) {
-//		alert(e.message);
-//	}
 });
 
 function mergely_init (id) {
 	$(id).mergely({
 		width: 'auto',
-		height: '500',
+		height: 'auto',
 		cmsettings:{
 			readOnly:true,
 			lineWrapping:true
 		},
-// 現状はプレビューのみ
-//		resized: function() {
-//			if (isHighlight) {
-//				resizeHighlight(id, strHighlight);
-//			} else {
-//				resizeHighlight(id, '');
-//			}
-//		},
-//		loaded: function() {
-//			if (isHighlight) {
-//				resizeHighlight(id, strHighlight);
-//			} else {
-//				resizeHighlight(id, '');
-//			}
-//		},
 	});
 }
 

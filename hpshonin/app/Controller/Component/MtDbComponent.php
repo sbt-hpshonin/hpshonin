@@ -288,7 +288,7 @@ class MtDbComponent extends DbComponent {
 								, NULL
 								, "%s"
 								, NULL
-								, "\'administer_blog\',\'send_notifications\',\'edit_notifications\',\'manage_pages\',\'edit_categories\',\'manage_users\',\'manage_feedback\',\'edit_assets\',\'edit_tags\',\'upload\',\'manage_themes\',\'create_post\',\'publish_post\',\'rebuild\',\'save_image_defaults\',\'edit_templates\',\'set_publish_paths\',\'edit_all_posts\',\'comment\',\'edit_config\',\'view_blog_log\'"
+								, "\'create_post\',\'publish_post\',\'edit_all_posts\',\'manage_feedback\',\'edit_categories\',\'edit_tags\',\'manage_pages\',\'rebuild\',\'upload\',\'send_notifications\',\'edit_assets\',\'save_image_defaults\',\'manage_themes\',\'edit_templates\'"
 								, NULL
 								, 0
 								, NULL)'
@@ -319,6 +319,7 @@ class MtDbComponent extends DbComponent {
 		//mt_associationが存在しない場合インサート
 		if (!$rowCount) {
 			//mt_association（ブログに対するユーザーのアソシエーション）をINSERT
+			//3:デザイナ
 			$str_sql = sprintf(' VALUES(
 								%d
 								, %d
@@ -327,7 +328,24 @@ class MtDbComponent extends DbComponent {
 								, 0
 								, NULL
 								, "%s"
-								, 2
+								, 3
+								, 1)'
+					, $author_id, $blog_id, date("Y-m-d H:i:s"), date("Y-m-d H:i:s"));
+			$rs = $this->execute($str_sql_head.$str_sql);
+			if(!$rs){
+				$result = AppConstants::RESULT_CD_FAILURE;
+				return $result;
+			}
+			//5:編集者
+			$str_sql = sprintf(' VALUES(
+								%d
+								, %d
+								, 1
+								, "%s"
+								, 0
+								, NULL
+								, "%s"
+								, 5
 								, 1)'
 					, $author_id, $blog_id, date("Y-m-d H:i:s"), date("Y-m-d H:i:s"));
 			$rs = $this->execute($str_sql_head.$str_sql);
@@ -774,5 +792,38 @@ class MtDbComponent extends DbComponent {
 		$str_sql=$str_sql." FROM mt_entry ";
 		$str_sql=$str_sql." WHERE entry_id =".$entry_id;
 		return $this->queryFetch($str_sql);
+	}
+
+	/**
+	 * ブログの関連記事を全て削除する
+	 * @param unknown $project_id
+	 * @return PDOStatement
+	 */
+	public function deleteMtEntry($project_id) {
+		// リビジョン情報の削除
+		$sql = "DELETE FROM  mt_entry_rev "
+				."WHERE EXISTS ("
+				."SELECT * FROM mt_entry e "
+				."WHERE e.entry_id = entry_rev_entry_id "
+				."AND e.entry_blog_id = {$project_id})";
+
+		if (!$this->query($sql))
+			return false;
+
+		// メタ情報の削除
+		$sql = "DELETE FROM  mt_entry_meta "
+				."WHERE EXISTS ("
+				."SELECT * FROM mt_entry e "
+				."WHERE e.entry_id = entry_meta_entry_id "
+				."AND e.entry_blog_id = {$project_id})";
+
+		if (!$this->query($sql))
+			return false;
+
+		// 記事情報の削除
+		$sql = "DELETE FROM  mt_entry "
+				."WHERE entry_blog_id = {$project_id}";
+
+		return $this->query($sql);
 	}
 }

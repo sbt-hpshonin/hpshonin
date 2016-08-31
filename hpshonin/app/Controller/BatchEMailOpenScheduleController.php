@@ -10,16 +10,16 @@ class BatchEMailOpenScheduleController extends BatchAppController {
 
 	public $uses = array('Package','ProjectUser','User');
 	private $_mailer;
-	
+
 	var $id;
 
 	/*
-	 * 
+	 *
 	*/
 	public function setId($id) {
 		$this->id = $id;
 	}
-	
+
 	/*
 	 * 実行
 	 */
@@ -33,13 +33,13 @@ class BatchEMailOpenScheduleController extends BatchAppController {
 	}
 
 	private function execute_core($package_id){
-		
+
 		$ctrl = new EMailController();
-		
+
 		// 指定パッケージ取得
 		$optioon = array(
 				'conditions' => array(
-						'Package.id' => $package_id  
+						'Package.id' => $package_id
 				),
 				'recursive' => 0
 		);
@@ -48,8 +48,8 @@ class BatchEMailOpenScheduleController extends BatchAppController {
 			// 該当パッケージなし
 			return AppConstants::RESULT_CD_FAILURE;
 		}
-		
-		
+
+
 		$project_id = $package['Project']['id'];
 		$project_name = $package['Project']['project_name'];
 		$package_id = $package['Package']['id'];
@@ -58,23 +58,16 @@ class BatchEMailOpenScheduleController extends BatchAppController {
 		$date = date_create($package['Package']['public_due_date']);
 		$public_due_date = date_format($date,  'Y/m/d');
 		$date = date_create($package['Package']['public_reservation_datetime']);
-		$public_reservation_datetime = date_format($date,  'Y/m/d h:i');
+		$public_reservation_datetime = date_format($date,  'Y/m/d H:i');
 		$date = date_create($package['Package']['modified']);
-		$modified  = date_format($date,  'Y/m/d h:i:s');
-		
-		
+		$modified  = date_format($date,  'Y/m/d H:i:s');
+
+
 		// 公開ユーザー取得
-		$optioon = array(
-				'conditions' => array(
-						'User.id' => $package['Package']['public_user_id']
-				),
-				'recursive' => -1
-		);
-		$users = $this->User->find('first',$optioon);
-		$username = $users['User']['username'];
-		$contact_address = $users['User']['contact_address'];
-		
-		
+		$username = $package['PublicUser']['username'];
+		$contact_address = $package['PublicUser']['contact_address'];
+
+
 		$optioon2 = array(
 				'conditions' => array(
 						'User.is_del' => 0,
@@ -82,8 +75,8 @@ class BatchEMailOpenScheduleController extends BatchAppController {
 				),
 				'recursive' => 0
 		);
-		$project_users = $this->ProjectUser->find('all',$optioon2);
-		
+		$project_users = $this->User->find('all',$optioon2);
+
 		$tos = array();
 		foreach($project_users as $project_user){
 			$tos[] = $project_user['User']['email'];
@@ -101,7 +94,7 @@ class BatchEMailOpenScheduleController extends BatchAppController {
 		foreach($project_users as $project_user){
 			$tos[] = $project_user['User']['email'];
 		}
-		
+
 		if(count($tos)){
 			$subject = AppConstants::MAIL_TITLE_HEAD ."公開予定通知({$project_name})";
 			$bodys
@@ -113,7 +106,7 @@ class BatchEMailOpenScheduleController extends BatchAppController {
 					. "　　　実施日時: {$modified}\n"
 					. "　　　　実施者: {$username}({$contact_address})\n"
 					. "　公開予定日時: {$public_reservation_datetime}\n"
-						
+					. "\n"
 					. "プロジェクト名: {$project_name}\n"
 					. "　パッケージ名: {$package_name}\n"
 					. "　　公開予定日: {$public_due_date}\n"

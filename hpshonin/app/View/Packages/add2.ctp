@@ -58,7 +58,7 @@ function submitChk(){
 			dataType : "text",
 			type:"POST",
 			async: false,
-			data: { 
+			data: {
 				"project_id":<?php echo $project['Project']['id']; ?>,
 				"due_date":$('#due_date').val()
 			},
@@ -77,11 +77,8 @@ function submitChk(){
 <?php $this->end(); ?>
 <div class="row-fluid">
 	<div class="span12">
-			<span class="titlebar" style=" width:97%; height:15px; display: inline-block;_display: inline;">
-			<div style="z-index: 1; position: absolute; right:32px; float: right;"><?php echo $this->Html->link('<i class="icon icon-question-sign icon-white"></i>ヘルプ', '/manual.pdf', array('class'=> 'pull-right' ,'target' => '_blank', "escape" => false)); ?></div>
-			<div style="z-index: 0; position: relative; text-overflow:clip; white-space: nowrap; overflow:hidden; width:90%; height:20px;">パッケージ登録 - <?php echo h($project['Project']['project_name']); ?></div>
-		</span>
-	<?php echo $this->Session->flash(); ?>
+		<?php echo $this->Title->makeTitleBar("パッケージ登録",h($project['Project']['project_name'])) ?>
+		<?php echo $this->Session->flash(); ?>
 		<div class="block">
 			<div class="text-error">
 				<?php
@@ -125,7 +122,7 @@ function submitChk(){
 				<div class="control-group">
 					<label class="control-label" for="input_comment">コメント</label>
 					<div class="controls">
-						<?php echo $this->Form->textarea('Package.camment', array('class' => 'span10','placeholder'=>'更新内容などを記載')); ?>
+						<?php echo $this->Form->textarea('Package.camment', array('class' => 'span10','rows'=>10,'placeholder'=>'更新内容などを記載')); ?>
 					</div>
 				</div>
 
@@ -197,7 +194,7 @@ function submitChk(){
 										<tr>
 											<td></td>
 											<td><?php echo ($blogentry['MtEntry']['SUBJECT']) ?></td>
-											<td><?php echo (DateUtil::dateFormat( $blogentry['MtEntry']['MODIFIED'], 'Y/m/d h:i')) ?></td>
+											<td><?php echo (DateUtil::dateFormat( $blogentry['MtEntry']['MODIFIED'], 'Y/m/d H:i')) ?></td>
 											<td><input type="hidden"
 												name="data[Package][deleteblogid_<?php echo($counter) ?>]"
 												id="PackageDeleteBlogId_<?php echo($counter) ?>"

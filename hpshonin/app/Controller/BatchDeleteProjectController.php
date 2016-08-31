@@ -108,6 +108,12 @@ class BatchDeleteProjectController extends BatchAppController {
 // 			$this->ApprovalMtDb->deleteProjectsAssociation($approval_blog_id);
 // 			$this->ApprovalMtDb->deleteProjectsAssociation($public_blog_id);
 
+			// mt_entry,mt_entry_meta,mt_entry_revを削除
+			if(!$this->EditMtDb->deleteMtEntry($edit_blog_id)) {
+				$this->log(sprintf("プロジェクト(%d)の関連記事が削除できません。", $project_id), LOG_ERR);
+				return AppConstants::RESULT_CD_FAILURE;;
+			}
+
 			//MtProjectテーブルをDELETE（MtProjectは別トランザクションなので最後に行っている）
 			if (!$this->MtProject->delete($mtProject["MtProject"]["id"])) {
 				// 削除に失敗したのでエラー終了
@@ -115,31 +121,54 @@ class BatchDeleteProjectController extends BatchAppController {
 				return AppConstants::RESULT_CD_FAILURE;;
 			}
 
-			// AppcmdでIISの仮想ディレクトリの削除
-			$this->log('仮想ディレクトリの削除', LOG_DEBUG);
-			$result = shell_exec('WinRS -r:' . AppConstants::APPCMD_SERVER
-					. ' -u:' . AppConstants::APPCMD_SERVER_USER
-					. ' -p:' . AppConstants::APPCMD_SERVER_USER_PASSWORD
-					. ' %windir%\system32\inetsrv\appcmd delete vdir '
-					. self::SLASH . 'vdir.name:"' . AppConstants::APPCMD_SITE_NAME . AppConstants::APPCMD_PATH_NAME . self::SLASH . $site_url . '" ');
+			// 公開用サーバー
+			$publish_server_list = array();
+			foreach ($this->getDirectorPublishServerList() as $director_publish_server) {
+				$publish_server = $director_publish_server;
+				$this->log('公開用サーバー：[' . $publish_server . ']', LOG_DEBUG);
+				$publish_server_list[] = $publish_server;
+			}
 
-			$this->log('仮想ディレクトリの存在チェック', LOG_DEBUG);
-			// AppcmdでIISの階層ディレクトリ状況を取得
-			$result = shell_exec('WinRS -r:' . AppConstants::APPCMD_SERVER
-					. ' -u:' . AppConstants::APPCMD_SERVER_USER
-					. ' -p:' . AppConstants::APPCMD_SERVER_USER_PASSWORD
-					. ' %windir%\system32\inetsrv\appcmd list vdir "'
-					. AppConstants::APPCMD_SITE_NAME . AppConstants::APPCMD_PATH_NAME . self::SLASH . $site_url . '" ' . self::SLASH . 'xml');
+			// 公開処理：公開用サーバ分繰り返す
+			for ($i = 0; $i < count($publish_server_list); $i++) {
 
-			// 取得したXMLをパース
-			$vdir = simplexml_load_string($result);
-			// 仮想ディレクトリ名を取得
-			$vdirName = $vdir->VDIR[0]['path'];
+				// 公開用サーバー
+				$publish_server = $publish_server_list[$i];
 
-			// 仮想ディレクトリが存在しない場合スラッシュが返る
-			if($vdirName != self::SLASH) {
-				$this->log('仮想ディレクトリの削除に失敗しました。', LOG_ERR);
-				return AppConstants::RESULT_CD_FAILURE;
+				// AppcmdでIISの仮想ディレクトリの削除
+				$this->log('仮想ディレクトリの削除', LOG_DEBUG);
+//				$result = shell_exec('WinRS -r:' . $publish_server
+//						. ' -u:' . AppConstants::APPCMD_SERVER_USER
+//						. ' -p:' . AppConstants::APPCMD_SERVER_USER_PASSWORD
+//						. ' %windir%\system32\inetsrv\appcmd delete vdir '
+//						. self::SLASH . 'vdir.name:"' . AppConstants::APPCMD_SITE_NAME . AppConstants::APPCMD_PATH_NAME . self::SLASH . $site_url . '" ');
+				$cmd = 'WinRS -r:' . $publish_server
+						. ' -u:' . AppConstants::APPCMD_SERVER_USER
+						. ' -p:' . AppConstants::APPCMD_SERVER_USER_PASSWORD
+						. ' %windir%\system32\inetsrv\appcmd delete vdir '
+						. self::SLASH . 'vdir.name:"' . AppConstants::APPCMD_SITE_NAME . AppConstants::APPCMD_PATH_NAME . self::SLASH . $site_url . '" ';
+				$this->log('仮想ディレクトリの削除コマンド：'.$cmd, LOG_DEBUG);
+				$result = shell_exec($cmd);
+
+				$this->log('仮想ディレクトリの存在チェック', LOG_DEBUG);
+				// AppcmdでIISの階層ディレクトリ状況を取得
+				$result = shell_exec('WinRS -r:' . $publish_server
+						. ' -u:' . AppConstants::APPCMD_SERVER_USER
+						. ' -p:' . AppConstants::APPCMD_SERVER_USER_PASSWORD
+						. ' %windir%\system32\inetsrv\appcmd list vdir "'
+						. AppConstants::APPCMD_SITE_NAME . AppConstants::APPCMD_PATH_NAME . self::SLASH . $site_url . '" ' . self::SLASH . 'xml');
+
+				// 取得したXMLをパース
+				$vdir = simplexml_load_string($result);
+				$this->log($vdir, LOG_DEBUG);
+				// 仮想ディレクトリ名を取得
+				$vdirName = $vdir->VDIR[0]['path'];
+
+				// 仮想ディレクトリが存在しない場合スラッシュが返る
+				if($vdirName != self::SLASH) {
+					$this->log('仮想ディレクトリの削除に失敗しました。', LOG_ERR);
+					return AppConstants::RESULT_CD_FAILURE;
+				}
 			}
 		}catch (Exception $e){
 			$this->log(sprintf("プロジェクトの削除中に予期せぬエラーが発生しました。(%s)", $e), LOG_ERR);
@@ -148,6 +177,23 @@ class BatchDeleteProjectController extends BatchAppController {
 
 		$this->log(sprintf("プロジェクト(%d)削除が正常終了しました。", $project_id), LOG_INFO);
 		return AppConstants::RESULT_CD_SUCCESS;
+	}
+
+	/**
+	 * 公開用サーバーリストを取得
+	 *
+	 * @return multitype:mixed 公開用サーバーリスト
+	 */
+	protected function getDirectorPublishServerList() {
+		$ret = array();
+		for($i = 1; ; $i++) {
+			$path = constant('AppConstants::APPCMD_SERVER_' . $i);
+			if (!$path) {
+				break;
+			}
+			$ret[] = $path;
+		}
+		return $ret;
 	}
 }
 ?>

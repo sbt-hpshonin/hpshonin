@@ -12,7 +12,7 @@ App::uses('DateUtil', 'Lib/Utils');
 		});
 
 	    var api = $('#datetimepicker').datetimepicker({
-	        format : 'hh:mm:ss',
+	        format : 'hh:mm',
 	        pickDate : false
 	        }).data('datetimepicker');
 	        api.widget.find('.timepicker-picker tr').each(function(){
@@ -23,7 +23,7 @@ App::uses('DateUtil', 'Lib/Utils');
 
 
 		$('.fancybox').fancybox({
-			modal:true,
+			'modal':true,
 			'showCloseButton':false,
 			'type' : 'iframe',
 			'autoScale': true,
@@ -42,11 +42,11 @@ App::uses('DateUtil', 'Lib/Utils');
 		    <?php if($package['Package']['status_cd'] ==Status::STATUS_CD_RELEASE_RESERVE ){ ?>
 		    <label><input type="radio" name="a" value="1"   checked/> 予約公開</label>
 		    <div id="datetimepicker" class="input-append">
-				<input name="span12" data-format="yyyy/MM/dd hh:mm:ss" type="text" class="span12"  value="<?php echo DateUtil::dateFormat($package['Package']['public_reservation_datetime'], 'Y/m/d H:i:s'); ?>" />
+				<input name="span12" data-format="yyyy/MM/dd hh:mm" type="text" class="span12"  value="<?php echo DateUtil::dateFormat($package['Package']['public_reservation_datetime'], 'Y/m/d H:i'); ?>" />
 		    <?php }else{ ?>
 		    <label><input type="radio" name="a" value="1" /> 予約公開</label>
 		    <div id="datetimepicker" class="input-append">
-				<input name="span12" data-format="yyyy/MM/dd hh:mm:ss" type="text" class="span12"></input>
+				<input name="span12" data-format="yyyy/MM/dd hh:mm" type="text" class="span12"></input>
 			<?php }?>
 				<span class="add-on"><i data-time-icon="icon-time" data-date-icon="icon-calendar"></i></span>
 			</div>

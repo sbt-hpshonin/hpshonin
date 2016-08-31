@@ -7,7 +7,9 @@ App::uses('DateUtil', 'Lib/Utils');
 
 // 戻り先ＵＲＬ取得
 $breadcrumb_ary = $this->Session->read("breadcrumb");
-ksort($breadcrumb_ary);
+if(is_array($breadcrumb_ary) == true ){
+	ksort($breadcrumb_ary);
+}
 $breadcrumb = "";
 if(is_array($breadcrumb_ary) == true ){
 	array_pop($breadcrumb_ary);
@@ -30,7 +32,7 @@ $this->start('script');?>
 		$('#menu_user').attr('class', '');
 		$('#menu_password').attr('class', '');
 		$('#menu_logout').attr('class', '');
-		
+
 	});
 })(jQuery);
 </script>
@@ -42,10 +44,7 @@ $this->start('script');?>
 ?>
     			<div class="row-fluid">
 			<div class="span12">
-				<span class="titlebar" style=" width:97%; height:15px; display: inline-block;_display: inline;">
-					<div style="z-index: 1; position: absolute; right:32px; float: right;"><?php echo $this->Html->link('<i class="icon icon-question-sign icon-white"></i>ヘルプ', '/manual.pdf', array('class'=> 'pull-right' ,'target' => '_blank', "escape" => false)); ?></div>
-					<div style="z-index: 0; position: relative; text-overflow:clip; white-space: nowrap; overflow:hidden; width:90%; height:20px;">プロジェクト詳細 - <?php echo h($project['Project']['project_name']); ?></div>
-				</span>
+				<?php echo $this->Title->makeTitleBar("プロジェクト詳細",h($project['Project']['project_name'])); ?>
 				<?php echo $this->Session->flash(); ?>
 				<div class="block">
 					<table class="table table-hover">
@@ -126,7 +125,7 @@ $this->start('script');?>
 				<div class="block">
 					<form class="form">
 						<?php
-						 if($project['Project']['is_del'] == 0) { 
+						 if($project['Project']['is_del'] == 0) {
 							if ($roll_cd != AppConstants::ROLL_CD_PR){
 						?>
 							<?php echo $this->Html->link( '<i class="icon icon-file"></i>パッケージ登録', array( 'controller' => 'packages', 'action' => 'add', h($project['Project']['id']) ), array("class" => "btn" ,"escape" => false) ); ?>
@@ -198,34 +197,34 @@ $this->start('script');?>
 									// ブログの場合
 									echo h("ブログ");
 								}
-								else{ 
+								else{
 									// それ以外
-									if($package['Package']['operation_cd'] == AppConstants::OPERATION_CD_PUBLIC) 
-										echo AppConstants::OPERATION_NAME_PUBLIC; 
-									else 
+									if($package['Package']['operation_cd'] == AppConstants::OPERATION_CD_PUBLIC)
+										echo AppConstants::OPERATION_NAME_PUBLIC;
+									else
 										echo AppConstants::OPERATION_NAME_DELETE;
-								} 
+								}
 								?>
 							</td>
 							<td><!-- 更新者 -->
-								<?php 
+								<?php
 									if($package['ModifiedUser']['id']==0){
 										echo h("システム");
 									}
 									else{
 										echo h($package['ModifiedUser']['username']);
-									} 
+									}
 								?>
 							</td>
 							<td><!-- ステータス -->
-								<?php 
+								<?php
 								if( $package['Package']['is_del'] != 0 ){
 									echo "削除";
 								 }
 								else{
 									if( $package['Package']['status_cd'] == Status::STATUS_CD_PACKAGE_READY_REJECT ){ ?>
 										<!-- エラーメッセージウィンドウ表示  -->
-										<a href="javascript:void(0);" 
+										<a href="javascript:void(0);"
 										   onclick="$('#err_mes').html('<?php
 												$message = $package['Package']['message'];
 												$message = strip_tags($message);
@@ -249,7 +248,7 @@ $this->start('script');?>
 									<?php if ($package['Package']['status_cd'] == Status::STATUS_CD_PACKAGE_ENTRY ) {?>
 										<?php switch($roll_cd){
 											case AppConstants::ROLL_CD_ADMIN :  // 管理者
-											case AppConstants::ROLL_CD_DEVELOP: // 製作会社
+											// case AppConstants::ROLL_CD_DEVELOP: // 製作会社
 											case AppConstants::ROLL_CD_SITE:    // サイト担当者
 											// case AppConstants::ROLL_CD_PR: // 広報室
 										?>
@@ -270,6 +269,7 @@ $this->start('script');?>
 										case Status::STATUS_CD_RELEASE_RESERVE		:	/**  公開予約CD */
 										case Status::STATUS_CD_RELEASE_NOW			:	/**  即時公開CD */
 										case Status::STATUS_CD_RELEASE_COMPLETE	:		/**  公開完了CD */
+										case Status::STATUS_CD_RELEASE_READY	:		/**  公開事前準備CD */
 											break;
 										case Status::STATUS_CD_PACKAGE_READY_ERROR	:	/**  パッケージ準備エラーCD */
 										case Status::STATUS_CD_PACKAGE_READY_REJECT	:	/**  パッケージ登録却下CD */
@@ -309,6 +309,7 @@ $this->start('script');?>
 										case Status::STATUS_CD_RELEASE_RESERVE		:	/**  公開予約CD */
 										case Status::STATUS_CD_RELEASE_NOW			:	/**  即時公開CD */
 										case Status::STATUS_CD_RELEASE_REJECT		:	/**  公開取消CD */
+										case Status::STATUS_CD_RELEASE_READY		:	/**  公開事前準備CD */
 											print '<i class="icon icon-circle"></i>';
 											break;
 										case Status::STATUS_CD_RELEASE_COMPLETE	:		/**  公開完了CD */
@@ -337,7 +338,7 @@ $this->start('script');?>
 										break;
 									case Status::STATUS_CD_RELEASE_RESERVE		:	/**  公開予約CD */
 									case Status::STATUS_CD_RELEASE_NOW			:	/**  即時公開CD */
-										if ($package['Package']['public_reservation_datetime'] !== "" && 
+										if ($package['Package']['public_reservation_datetime'] !== "" &&
 											$package['Package']['is_del'] == 0
 										){
 											 echo DateUtil::dateFormat($package['Package']['public_reservation_datetime'], 'y/m/d H:i');
@@ -352,6 +353,13 @@ $this->start('script');?>
 									case Status::STATUS_CD_PACKAGE_READY_REJECT	:	/**  パッケージ登録却下CD */
 									case Status::STATUS_CD_APPROVAL_REJECT		:	/**  承認却下CD */
 									case Status::STATUS_CD_RELEASE_REJECT		:	/**  公開取消CD */
+										break;
+									case Status::STATUS_CD_RELEASE_READY		:	/** 公開事前準備CD */
+										if ($roll_cd == AppConstants::ROLL_CD_ADMIN
+											|| $roll_cd == AppConstants::ROLL_CD_SITE
+											|| $roll_cd == AppConstants::ROLL_CD_DEVELOP) {
+											echo "公開前<br />準備中";
+										}
 										break;
 								}
 

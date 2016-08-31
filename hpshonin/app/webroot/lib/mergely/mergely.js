@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2013 by Jamie Peabody, http://www.mergely.com
  * All rights reserved.
- * Version: 3.3.3 2013-06-24
+ * Version: 3.3.4 2013-11-02
  */
 Mgly = {};
 
@@ -59,18 +59,18 @@ Mgly.LCS = function(x, y) {
 jQuery.extend(Mgly.LCS.prototype, {
 	clear: function() { this.ready = 0; },
 	diff: function(added, removed) {
-		var d = new Mgly.diff(this.x, this.y, retain_lines = true, ignore_ws = false);
+		var d = new Mgly.diff(this.x, this.y, {ignorews: false});
 		var changes = Mgly.DiffParser(d.normal_form());
 		var li = 0, lj = 0;
 		for (var i = 0; i < changes.length; ++i) {
 			var change = changes[i];
 			if (change.op != 'a') {
 				// find the starting index of the line
-				li = d.lhs_lines.slice(0, change['lhs-line-from']).join(' ').length;
+				li = d.getLines('lhs').slice(0, change['lhs-line-from']).join(' ').length;
 				// get the index of the the span of the change
 				lj = change['lhs-line-to'] + 1;
 				// get the changed text
-				var lchange = d.lhs_lines.slice(change['lhs-line-from'], lj).join(' ');
+				var lchange = d.getLines('lhs').slice(change['lhs-line-from'], lj).join(' ');
 				if (change.op == 'd') lchange += ' ';// include the leading space
 				else if (li > 0 && change.op == 'c') li += 1; // ignore leading space if not first word
 				// output the changed index and text
@@ -78,11 +78,11 @@ jQuery.extend(Mgly.LCS.prototype, {
 			}
 			if (change.op != 'd') {
 				// find the starting index of the line
-				li = d.rhs_lines.slice(0, change['rhs-line-from']).join(' ').length;
+				li = d.getLines('lhs').slice(0, change['rhs-line-from']).join(' ').length;
 				// get the index of the the span of the change
 				lj = change['rhs-line-to'] + 1;
 				// get the changed text
-				var rchange = d.rhs_lines.slice(change['rhs-line-from'], lj).join(' ');
+				var rchange = d.getLines('lhs').slice(change['rhs-line-from'], lj).join(' ');
 				if (change.op == 'a') rchange += ' ';// include the leading space
 				else if (li > 0 && change.op == 'c') li += 1; // ignore leading space if not first word
 				// output the changed index and text
@@ -91,39 +91,83 @@ jQuery.extend(Mgly.LCS.prototype, {
 		}
 	}
 });
-Mgly.diff = function(lhs, rhs, retain_lines, ignore_ws) {
-	this.diff_codes = {};
-	this.max_code = 0;
-	var lhs_lines = lhs.split('\n');
-	var rhs_lines = rhs.split('\n');
-	if (lhs.length == 0) lhs_lines = [];
-	if (rhs.length == 0) rhs_lines = [];
-	
-	var lhs_data = new Object();
-	lhs_data.data = this._diff_codes(lhs_lines, ignore_ws);
-	lhs_data.modified = {};
-	lhs_data.length = Mgly.sizeOf(lhs_data.data);
 
-	var rhs_data = new Object();
-	rhs_data.data = this._diff_codes(rhs_lines, ignore_ws);
-	rhs_data.modified = {};
-	rhs_data.length = Mgly.sizeOf(rhs_data.data);
-	
-	var max = (lhs_data.length + rhs_data.length + 1);
+Mgly.CodeifyText = function(settings) {
+    this._max_code = 0;
+    this._diff_codes = {};
+	this.ctxs = {};
+	this.options = {ignorews: false};
+	jQuery.extend(this, settings);
+	this.lhs = settings.lhs.split('\n');
+	this.rhs = settings.rhs.split('\n');
+}
+
+jQuery.extend(Mgly.CodeifyText.prototype, {
+	getCodes: function(side) {
+		if (!this.ctxs.hasOwnProperty(side)) {
+			var ctx = this._diff_ctx(this[side]);
+			this.ctxs[side] = ctx;
+			ctx.codes.length = Object.keys(ctx.codes).length;
+		}
+		return this.ctxs[side].codes;
+	},
+	getLines: function(side) {
+		return this.ctxs[side].lines;
+	},
+	_diff_ctx: function(lines) {
+		var ctx = {i: 0, codes: {}, lines: lines};
+		this._codeify(lines, ctx);
+		return ctx;
+	},
+	_codeify: function(lines, ctx) {
+		var code = this._max_code;
+		for (var i = 0; i < lines.length; ++i) {
+			var line = lines[i];
+			if (this.options.ignorews) {
+				line = line.replace(/\s+/g, '');
+			}
+			var aCode = this._diff_codes[line];
+			if (aCode != undefined) {
+				ctx.codes[i] = aCode;
+			}
+			else {
+				this._max_code++;
+				this._diff_codes[line] = this._max_code;
+				ctx.codes[i] = this._max_code;
+			}
+		}
+	}
+});
+
+Mgly.diff = function(lhs, rhs, options) {
+	var opts = jQuery.extend({ignorews: false}, options);
+	this.codeify = new Mgly.CodeifyText({
+		lhs: lhs,
+		rhs: rhs,
+		options: opts
+	});
+	var lhs_ctx = {
+		codes: this.codeify.getCodes('lhs'),
+		modified: {}
+	};
+	var rhs_ctx = {
+		codes: this.codeify.getCodes('rhs'),
+		modified: {}
+	};
+	var max = (lhs_ctx.codes.length + rhs_ctx.codes.length + 1);
 	var vector_d = Array( 2 * max + 2 );
 	var vector_u = Array( 2 * max + 2 );
-	
-	this._lcs(lhs_data, 0, lhs_data.length, rhs_data, 0, rhs_data.length, vector_u, vector_d);
-	this._optimize(lhs_data);
-	this._optimize(rhs_data);
-	this.items = this._create_diffs(lhs_data, rhs_data);
-	if (retain_lines) {
-		this.lhs_lines = lhs_lines;
-		this.rhs_lines = rhs_lines;
-	}
+	this._lcs(lhs_ctx, 0, lhs_ctx.codes.length, rhs_ctx, 0, rhs_ctx.codes.length, vector_u, vector_d);
+	this._optimize(lhs_ctx);
+	this._optimize(rhs_ctx);
+	this.items = this._create_diffs(lhs_ctx, rhs_ctx);
 };
+
 jQuery.extend(Mgly.diff.prototype, {
 	changes: function() { return this.items; },
+	getLines: function(side) {
+		return this.codeify.getLines(side);
+	},
 	normal_form: function() {
 		var nf = '';
 		for (var index = 0; index < this.items.length; ++index) {
@@ -155,53 +199,33 @@ jQuery.extend(Mgly.diff.prototype, {
 		}
 		return nf;
 	},
-	_diff_codes: function(lines, ignore_ws) {
-		var code = this.max_code;
-		var codes = {};
-		for (var i = 0; i < lines.length; ++i) {
-			var line = lines[i];
-			if (ignore_ws) {
-				line = line.replace(/\s+/g, '');
-			}
-			var aCode = this.diff_codes[line];
-			if (aCode != undefined) {
-				codes[i] = aCode;
-			}
-			else {
-				this.max_code++;
-				this.diff_codes[line] = this.max_code;
-				codes[i] = this.max_code;
-			}
-		}
-		return codes;
-	},
-	_lcs: function(lhs, lhs_lower, lhs_upper, rhs, rhs_lower, rhs_upper, vector_u, vector_d) {
-		while ( (lhs_lower < lhs_upper) && (rhs_lower < rhs_upper) && (lhs.data[lhs_lower] == rhs.data[rhs_lower]) ) {
+	_lcs: function(lhs_ctx, lhs_lower, lhs_upper, rhs_ctx, rhs_lower, rhs_upper, vector_u, vector_d) {
+		while ( (lhs_lower < lhs_upper) && (rhs_lower < rhs_upper) && (lhs_ctx.codes[lhs_lower] == rhs_ctx.codes[rhs_lower]) ) {
 			++lhs_lower;
 			++rhs_lower;
 		}
-		while ( (lhs_lower < lhs_upper) && (rhs_lower < rhs_upper) && (lhs.data[lhs_upper - 1] == rhs.data[rhs_upper - 1]) ) {
+		while ( (lhs_lower < lhs_upper) && (rhs_lower < rhs_upper) && (lhs_ctx.codes[lhs_upper - 1] == rhs_ctx.codes[rhs_upper - 1]) ) {
 			--lhs_upper;
 			--rhs_upper;
 		}
 		if (lhs_lower == lhs_upper) {
 			while (rhs_lower < rhs_upper) {
-				rhs.modified[ rhs_lower++ ] = true;
+				rhs_ctx.modified[ rhs_lower++ ] = true;
 			}
 		}
 		else if (rhs_lower == rhs_upper) {
 			while (lhs_lower < lhs_upper) {
-				lhs.modified[ lhs_lower++ ] = true;
+				lhs_ctx.modified[ lhs_lower++ ] = true;
 			}
 		}
 		else {
-			var sms = this._sms(lhs, lhs_lower, lhs_upper, rhs, rhs_lower, rhs_upper, vector_u, vector_d);
-			this._lcs(lhs, lhs_lower, sms.x, rhs, rhs_lower, sms.y, vector_u, vector_d);
-			this._lcs(lhs, sms.x, lhs_upper, rhs, sms.y, rhs_upper, vector_u, vector_d);
+			var sms = this._sms(lhs_ctx, lhs_lower, lhs_upper, rhs_ctx, rhs_lower, rhs_upper, vector_u, vector_d);
+			this._lcs(lhs_ctx, lhs_lower, sms.x, rhs_ctx, rhs_lower, sms.y, vector_u, vector_d);
+			this._lcs(lhs_ctx, sms.x, lhs_upper, rhs_ctx, sms.y, rhs_upper, vector_u, vector_d);
 		}
 	},
-	_sms: function(lhs, lhs_lower, lhs_upper, rhs, rhs_lower, rhs_upper, vector_u, vector_d) {
-		var max = lhs.length + rhs.length + 1;
+	_sms: function(lhs_ctx, lhs_lower, lhs_upper, rhs_ctx, rhs_lower, rhs_upper, vector_u, vector_d) {
+		var max = lhs_ctx.codes.length + rhs_ctx.codes.length + 1;
 		var kdown = lhs_lower - rhs_lower;
 		var kup = lhs_upper - rhs_upper;
 		var delta = (lhs_upper - lhs_lower) - (rhs_upper - rhs_lower);
@@ -226,7 +250,7 @@ jQuery.extend(Mgly.diff.prototype, {
 				}
 				y = x - k;
 				// find the end of the furthest reaching forward D-path in diagonal k.
-				while ((x < lhs_upper) && (y < rhs_upper) && (lhs.data[x] == rhs.data[y])) {
+				while ((x < lhs_upper) && (y < rhs_upper) && (lhs_ctx.codes[x] == rhs_ctx.codes[y])) {
 					x++; y++;
 				}
 				vector_d[ offset_down + k ] = x;
@@ -251,7 +275,7 @@ jQuery.extend(Mgly.diff.prototype, {
 						x = vector_u[offset_up + k - 1]; // up
 				}
 				y = x - k;
-				while ((x > lhs_lower) && (y > rhs_lower) && (lhs.data[x - 1] == rhs.data[y - 1])) {
+				while ((x > lhs_lower) && (y > rhs_lower) && (lhs_ctx.codes[x - 1] == rhs_ctx.codes[y - 1])) {
 					// diagonal
 					x--;
 					y--;
@@ -269,33 +293,33 @@ jQuery.extend(Mgly.diff.prototype, {
 		}
 		throw "the algorithm should never come here.";
 	},
-	_optimize: function(data) {
+	_optimize: function(ctx) {
 		var start = 0, end = 0;
-		while (start < data.length) {
-			while ((start < data.length) && (data.modified[start] == undefined || data.modified[start] == false)) {
+		while (start < ctx.length) {
+			while ((start < ctx.length) && (ctx.modified[start] == undefined || ctx.modified[start] == false)) {
 				start++;
 			}
 			end = start;
-			while ((end < data.length) && (data.modified[end] == true)) {
+			while ((end < ctx.length) && (ctx.modified[end] == true)) {
 				end++;
 			}
-			if ((end < data.length) && (data.data[start] == data.data[end])) {
-				data.modified[start] = false;
-				data.modified[end] = true;
+			if ((end < ctx.length) && (ctx.ctx[start] == ctx.codes[end])) {
+				ctx.modified[start] = false;
+				ctx.modified[end] = true;
 			}
 			else {
 				start = end;
 			}
 		}
 	},
-	_create_diffs: function(lhs_data, rhs_data) {
+	_create_diffs: function(lhs_ctx, rhs_ctx) {
 		var items = [];
 		var lhs_start = 0, rhs_start = 0;
 		var lhs_line = 0, rhs_line = 0;
 
-		while (lhs_line < lhs_data.length || rhs_line < rhs_data.length) {
-			if ((lhs_line < lhs_data.length) && (!lhs_data.modified[lhs_line])
-				&& (rhs_line < rhs_data.length) && (!rhs_data.modified[rhs_line])) {
+		while (lhs_line < lhs_ctx.codes.length || rhs_line < rhs_ctx.codes.length) {
+			if ((lhs_line < lhs_ctx.codes.length) && (!lhs_ctx.modified[lhs_line])
+				&& (rhs_line < rhs_ctx.codes.length) && (!rhs_ctx.modified[rhs_line])) {
 				// equal lines
 				lhs_line++;
 				rhs_line++;
@@ -305,20 +329,20 @@ jQuery.extend(Mgly.diff.prototype, {
 				lhs_start = lhs_line;
 				rhs_start = rhs_line;
 
-				while (lhs_line < lhs_data.length && (rhs_line >= rhs_data.length || lhs_data.modified[lhs_line]))
+				while (lhs_line < lhs_ctx.codes.length && (rhs_line >= rhs_ctx.codes.length || lhs_ctx.modified[lhs_line]))
 					lhs_line++;
 
-				while (rhs_line < rhs_data.length && (lhs_line >= lhs_data.length || rhs_data.modified[rhs_line]))
+				while (rhs_line < rhs_ctx.codes.length && (lhs_line >= lhs_ctx.codes.length || rhs_ctx.modified[rhs_line]))
 					rhs_line++;
 
 				if ((lhs_start < lhs_line) || (rhs_start < rhs_line)) {
 					// store a new difference-item
-					var aItem = new Object();
-					aItem.lhs_start = lhs_start;
-					aItem.rhs_start = rhs_start;
-					aItem.lhs_deleted_count = lhs_line - lhs_start;
-					aItem.rhs_inserted_count = rhs_line - rhs_start;
-					items.push(aItem);
+					items.push({
+						lhs_start: lhs_start,
+						rhs_start: rhs_start,
+						lhs_deleted_count: lhs_line - lhs_start,
+						rhs_inserted_count: rhs_line - rhs_start
+					});
 				}
 			}
 		}
@@ -327,12 +351,6 @@ jQuery.extend(Mgly.diff.prototype, {
 });
 
 Mgly.mergely = function(el, options) {
-	CodeMirror.defineExtension('centerOnCursor', function() {
-		var coords = this.cursorCoords(null, 'local');
-		this.scrollTo(null, 
-			(coords.y + coords.yBot) / 2 - (this.getScrollerElement().clientHeight / 2));
-	});
-
 	if (el) {
 		this.init(el, options);
 	}
@@ -341,6 +359,25 @@ Mgly.mergely = function(el, options) {
 jQuery.extend(Mgly.mergely.prototype, {
 	name: 'mergely',
 	//http://jupiterjs.com/news/writing-the-perfect-jquery-plugin
+	init: function(el, options) {
+		this.diffView = new Mgly.CodeMirrorDiffView(el, options);
+		this.bind(el);
+	},
+	bind: function(el) {
+		this.diffView.bind(el);
+	}
+});
+
+Mgly.CodeMirrorDiffView = function(el, options) {
+	CodeMirror.defineExtension('centerOnCursor', function() {
+		var coords = this.cursorCoords(null, 'local');
+		this.scrollTo(null, 
+			(coords.y + coords.yBot) / 2 - (this.getScrollerElement().clientHeight / 2));
+	});
+	this.init(el, options);
+};
+
+jQuery.extend(Mgly.CodeMirrorDiffView.prototype, {
 	init: function(el, options) {
 		this.settings = {
 			autoupdate: true,
@@ -420,53 +457,8 @@ jQuery.extend(Mgly.mergely.prototype, {
 		// bind if the element is destroyed
 		this.element.bind('destroyed', jQuery.proxy(this.teardown, this));
 
-		// save this instance in jQuery data
-		jQuery.data(el, this.name, this);
-
-		this._setup(el);
-	},
-	// bind events to this instance's methods
-	bind: function() {
-		var rhstx = jQuery('#' + this.id + '-rhs').get(0);
-		if (!rhstx) {
-			console.error('rhs textarea not defined - Mergely not initialized properly');
-			return;
-		}
-		var lhstx = jQuery('#' + this.id + '-lhs').get(0);
-		if (!rhstx) {
-			console.error('lhs textarea not defined - Mergely not initialized properly');
-			return;
-		}
-		var self = this;
-		this.editor = [];
-		
-		this.editor[this.id + '-lhs'] = CodeMirror.fromTextArea(lhstx, this.lhs_cmsettings);
-		this.editor[this.id + '-rhs'] = CodeMirror.fromTextArea(rhstx, this.rhs_cmsettings);
-		this.editor[this.id + '-lhs'].on('change', function(){ if (self.settings.autoupdate) self._changing(self.id + '-lhs', self.id + '-rhs'); });
-		this.editor[this.id + '-lhs'].on('scroll', function(){ self._scrolling(self.id + '-lhs'); });
-		this.editor[this.id + '-rhs'].on('change', function(){ if (self.settings.autoupdate) self._changing(self.id + '-lhs', self.id + '-rhs'); });
-		this.editor[this.id + '-rhs'].on('scroll', function(){ self._scrolling(self.id + '-rhs'); });
-		
-		// resize
-		if (this.settings.autoresize) {
-			var sz_timeout1 = null;
-			var sz = function(init) {
-				//self.em_height = null; //recalculate
-				if (self.settings.resize) self.settings.resize(init);
-				self.editor[self.id + '-lhs'].refresh();
-				self.editor[self.id + '-rhs'].refresh();
-				if (self.settings.autoupdate) {
-					self._changing(self.id + '-lhs', self.id + '-rhs');
-				}
-			}
-			jQuery(window).resize(
-				function () {
-					if (sz_timeout1) clearTimeout(sz_timeout1);
-					sz_timeout1 = setTimeout(sz, self.settings.resize_timeout);
-				}
-			);
-			sz(true);
-		}
+		// save this instance in jQuery data, binding this view to the node
+		jQuery.data(el, 'mergely', this);
 	},
 	unbind: function() {
 		if (this.changed_timeout != null) clearTimeout(this.changed_timeout);
@@ -507,11 +499,11 @@ jQuery.extend(Mgly.mergely.prototype, {
 	options: function(opts) {
 		if (opts) {
 			jQuery.extend(this.settings, opts);
-			if (opts.autoresize) this.resize();
-			if (opts.autoupdate) this.update();
-			if (opts.hasOwnProperty('rhs_margin')) {
+			if (this.settings.autoresize) this.resize();
+			if (this.settings.autoupdate) this.update();
+			if (this.settings.hasOwnProperty('rhs_margin')) {
 				// dynamically swap the margin
-				if (opts.rhs_margin == 'left') {
+				if (this.settings.rhs_margin == 'left') {
 					this.element.find('.mergely-margin:last-child').insertAfter(
 						this.element.find('.mergely-canvas'));
 				}
@@ -520,9 +512,9 @@ jQuery.extend(Mgly.mergely.prototype, {
 					target.appendTo(target.parent());
 				}
 			}
-			if (opts.hasOwnProperty('sidebar')) {
+			if (this.settings.hasOwnProperty('sidebar')) {
 				// dynamically enable sidebars
-				if (opts.sidebar) {
+				if (this.settings.sidebar) {
 					jQuery(this.element).find('.mergely-margin').css({display: 'block'});
 				}
 				else {
@@ -586,14 +578,15 @@ jQuery.extend(Mgly.mergely.prototype, {
 	resize: function() {
 		this.settings.resize();
 		this._changing(this.id + '-lhs', this.id + '-rhs');
+		this._set_top_offset(this.id + '-lhs');
 	},
 	diff: function() {
 		var lhs = this.editor[this.id + '-lhs'].getValue();
 		var rhs = this.editor[this.id + '-rhs'].getValue();
-		var d = new Mgly.diff(lhs, rhs, retain_lines = true, ignore_ws = this.settings.ignorews);
+		var d = new Mgly.diff(lhs, rhs, this.settings);
 		return d.normal_form();
 	},
-	_setup: function(el) {
+	bind: function(el) {
 		jQuery(this.element).hide();//hide
 		this.id = jQuery(el).attr('id');
 		var height = this.settings.editor_height;
@@ -645,7 +638,48 @@ jQuery.extend(Mgly.mergely.prototype, {
 			cmstyle += this.id + ' .CodeMirror-scroll { height: 100%; overflow: auto; }';
 		}
 		jQuery('<style type="text/css">' + cmstyle + '</style>').appendTo('head');
-		this.bind();
+
+		//bind
+		var rhstx = jQuery('#' + this.id + '-rhs').get(0);
+		if (!rhstx) {
+			console.error('rhs textarea not defined - Mergely not initialized properly');
+			return;
+		}
+		var lhstx = jQuery('#' + this.id + '-lhs').get(0);
+		if (!rhstx) {
+			console.error('lhs textarea not defined - Mergely not initialized properly');
+			return;
+		}
+		var self = this;
+		this.editor = [];
+		this.editor[this.id + '-lhs'] = CodeMirror.fromTextArea(lhstx, this.lhs_cmsettings);
+		this.editor[this.id + '-rhs'] = CodeMirror.fromTextArea(rhstx, this.rhs_cmsettings);
+		this.editor[this.id + '-lhs'].on('change', function(){ if (self.settings.autoupdate) self._changing(self.id + '-lhs', self.id + '-rhs'); });
+		this.editor[this.id + '-lhs'].on('scroll', function(){ self._scrolling(self.id + '-lhs'); });
+		this.editor[this.id + '-rhs'].on('change', function(){ if (self.settings.autoupdate) self._changing(self.id + '-lhs', self.id + '-rhs'); });
+		this.editor[this.id + '-rhs'].on('scroll', function(){ self._scrolling(self.id + '-rhs'); });
+		// resize
+		if (this.settings.autoresize) {
+			var sz_timeout1 = null;
+			var sz = function(init) {
+				//self.em_height = null; //recalculate
+				if (self.settings.resize) self.settings.resize(init);
+				self.editor[self.id + '-lhs'].refresh();
+				self.editor[self.id + '-rhs'].refresh();
+				if (self.settings.autoupdate) {
+					self._changing(self.id + '-lhs', self.id + '-rhs');
+				}
+			}
+			jQuery(window).resize(
+				function () {
+					if (sz_timeout1) clearTimeout(sz_timeout1);
+					sz_timeout1 = setTimeout(sz, self.settings.resize_timeout);
+				}
+			);
+			sz(true);
+		}
+		//bind
+		
 		if (this.settings.lhs) {
 			var setv = this.editor[this.id + '-lhs'].getDoc().setValue;
 			this.settings.lhs(setv.bind(this.editor[this.id + '-lhs'].getDoc()));
@@ -808,7 +842,7 @@ jQuery.extend(Mgly.mergely.prototype, {
 		var lhs = this.editor[editor_name1].getValue();
 		var rhs = this.editor[editor_name2].getValue();
 		var timer = new Mgly.Timer();
-		var d = new Mgly.diff(lhs, rhs, false, this.settings.ignorews);
+		var d = new Mgly.diff(lhs, rhs, this.settings);
 		this.trace('change', 'diff time', timer.stop());
 		this.changes = Mgly.DiffParser(d.normal_form());
 		this.trace('change', 'parse time', timer.stop());
@@ -866,13 +900,27 @@ jQuery.extend(Mgly.mergely.prototype, {
 		}
 		return true;
 	},
+	_set_top_offset: function (editor_name1) {
+		// save the current scroll position of the editor
+		var saveY = this.editor[editor_name1].getScrollInfo().top;
+		// temporarily scroll to top
+		this.editor[editor_name1].scrollTo(null, 0);
+		
+		// this is the distance from the top of the screen to the top of the 
+		// content of the first codemirror editor
+		var topnode = jQuery('#' + this.id + ' .CodeMirror-measure').first();
+		var top_offset = topnode.offset().top - 4;
+		if(!top_offset) return false;
+		
+		// restore editor's scroll position
+		this.editor[editor_name1].scrollTo(null, saveY);
+		
+		this.draw_top_offset = 0.5 - top_offset;
+		return true;
+	},
 	_calculate_offsets: function (editor_name1, editor_name2, changes) {
 		if (this.em_height == null) {
-			// this is the distance from the top of the screen
-			var topnode = jQuery('#' + this.id + ' .CodeMirror-measure').first();
-			var top_offset = topnode.offset().top - 4;
-			if (!top_offset) return;//try again
-			this.draw_top_offset = 0.5 - top_offset;
+			if(!this._set_top_offset(editor_name1)) return; //try again
 			this.em_height = this.editor[editor_name1].defaultTextHeight();
 			if (!this.em_height) {
 				console.warn('Failed to calculate offsets, using 18 by default');
@@ -891,7 +939,7 @@ jQuery.extend(Mgly.mergely.prototype, {
 			this.draw_rhs_max = this.draw_mid_width - 0.5; //24.5;
 			this.draw_lhs_width = 5;
 			this.draw_rhs_width = 5;
-			this.trace('calc', 'change offsets calculated', {top_offset: top_offset, lhs_min: this.draw_lhs_min, rhs_max: this.draw_rhs_max, lhs_width: this.draw_lhs_width, rhs_width: this.draw_rhs_width});
+			this.trace('calc', 'change offsets calculated', {top_offset: this.draw_top_offset, lhs_min: this.draw_lhs_min, rhs_max: this.draw_rhs_max, lhs_width: this.draw_lhs_width, rhs_width: this.draw_rhs_width});
 		}
 		var lhschc = this.editor[editor_name1].charCoords({line: 0});
 		var rhschc = this.editor[editor_name2].charCoords({line: 0});
@@ -1416,12 +1464,12 @@ jQuery.extend(Mgly.mergely.prototype, {
 		ctx_rhs.fillRect(1.5, rfrom, 4.5, rto);
 		
 		ex.clhs.click(function (ev) {
-			var y = ev.pageY - ex.lhs_xyoffset.top - (to / 2);
+			var y = ev.pageY - ex.lhs_xyoffset.top - (lto / 2);
 			var sto = Math.max(0, (y / mcanvas_lhs.height) * ex.lhs_scroller.get(0).scrollHeight);
 			ex.lhs_scroller.scrollTop(sto);
 		});
 		ex.crhs.click(function (ev) {
-			var y = ev.pageY - ex.rhs_xyoffset.top - (to / 2);
+			var y = ev.pageY - ex.rhs_xyoffset.top - (rto / 2);
 			var sto = Math.max(0, (y / mcanvas_rhs.height) * ex.rhs_scroller.get(0).scrollHeight);			
 			ex.rhs_scroller.scrollTop(sto);
 		});

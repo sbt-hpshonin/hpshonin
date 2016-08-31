@@ -1,6 +1,9 @@
 <?php
 App::uses('AppModel', 'Model');
 App::uses('HistoryPackage', 'Model');
+App::uses('Status', 'Lib');
+App::uses('FileUtil', 'Lib/Utils');
+App::uses('AppConstants', 'Lib/Constants');
 
 /**
  * パッケージモデルクラス
@@ -25,6 +28,16 @@ class Package extends AppModel {
 			'ModifiedUser' => array(
 					'className'		=> 'User',
 					'foreignKey'	=> 'modified_user_id'
+			),
+			// 承認依頼者のエリアス
+			'RequestUser' => array(
+					'className'		=> 'User',
+					'foreignKey'	=> 'request_user_id'
+			),
+			// 公開実施者のエリアス
+			'PublicUser' => array(
+					'className'		=> 'User',
+					'foreignKey'	=> 'public_user_id'
 			)
 	);
 
@@ -243,8 +256,8 @@ class Package extends AppModel {
 					packages
 				 WHERE
 				 	(
-						is_del        = '0'               AND
-						status_cd     IN ('06','93','95') AND
+						is_del        = '0'                      AND
+						status_cd     IN ('06', '91', '93','95') AND
 						is_clean_file = '0'
 					)
 					OR
@@ -291,5 +304,159 @@ class Package extends AppModel {
 		return  $this->query($sql);
 	}
 
+	/**
+	 * 前回公開され、公開用およびステージング用にファイルが残っているパッケージの取得
+	 * @param unknown $id
+	 */
+	public function getPriviousVersionPackageId($id) {
+
+		$sql = <<<EOT
+select
+	Package.*
+	, Project.*
+from
+	packages Package
+		join projects Project
+		on Package.project_id = Project.id
+where
+	Package.is_del = '0'
+	and Package.status_cd = ?
+	and Package.is_clean_file = '0'
+	and Package.project_id = ?
+	and not exists (
+		select
+			*
+		from
+			batch_queues bq
+				join packages p
+				on bq.package_id = p.id
+		where
+			bq.is_del = '0'
+			and bq.batch_cd in ('42', '51')
+			and bq.result_cd in (0, 2)
+			and p.project_id = ?)
+order by
+	Package.modified desc
+	, Package.id
+limit 2
+EOT;
+
+		$packages = $this->findById($id);
+		$packages = $this->query($sql, array(Status::STATUS_CD_RELEASE_COMPLETE, $packages['Project']['id'], $packages['Project']['id']));
+		if (count($packages) < 2) {
+			return -1;
+		}
+
+		if ($packages[0]['Package']['is_blog'] !== '0') {
+			return -1;
+		}
+
+		$package = $packages[1];
+		
+		$site_url = $package['Project']['site_url'];
+		$recent_package_id = $package['Package']['id'];
+
+		$staging_path = AppConstants::DIRECTOR_STAGING_PATH . DS . $site_url . DS . $recent_package_id;
+		if (FileUtil::exists($staging_path) === false) {
+			return -1;
+		}
+
+		// 公開用フォルダ接続確認
+		foreach ($this->getDirectorPublishPathList() as $director_publish_path) {
+			if (FileUtil::exists($director_publish_path) === false) {
+				return -1;
+			}
+		}
+
+		// 公開用フォルダ
+		$publish_path_list = array();
+		foreach ($this->getDirectorPublishPathList() as $director_publish_path) {
+			$publish_path = $director_publish_path . DS . $site_url. DS . $recent_package_id;
+			if (FileUtil::exists($publish_path) === false) {
+				return -1;
+			}
+		}
+		return $recent_package_id;
+	}
+	
+	/**
+	 * 更新から一定期間の経過した生きたステータスのパッケージを取得
+	 * @return mixed
+	 */
+	public function getAlivePackages() {
+		$sql = <<<EOT
+select
+	pj.site_url
+	, pkg.id
+from
+	projects pj
+		inner join packages pkg
+		on pj.id = pkg.project_id
+where
+	pj.public_package_id <> pkg.id
+	and pkg.status_cd = '06'/*公開完了*/
+	and to_days(now()) - to_days(pkg.modified) >= 7
+order by
+	pj.id
+	, pkg.id
+EOT;
+		
+		return $this->query($sql);
+	}
+
+	/**
+	 * 使用されないパッケージを取得
+	 * @return mixed
+	 */
+	public function getDeadPackages() {
+		$sql = <<<EOT
+select
+	pj.site_url
+	, pkg.id
+from
+	projects pj
+		inner join packages pkg
+		on pj.id = pkg.project_id
+where
+	pkg.is_clean_file = '0'
+	and (
+		pj.is_del = '1'
+		or (
+				(
+					pkg.status_cd = '06'/*公開完了*/
+					and to_days(now()) - to_days(pkg.modified) >= 7)
+			or
+				(
+					pkg.is_del = '1')
+			or
+				(
+					pkg.status_cd in ('91'/*パッケージ登録却下*/, '93'/*却下*/, '95'/*有効期限切れ*/))
+		)
+	)
+order by
+	pj.id
+	, pkg.id
+EOT;
+
+		return $this->query($sql);
+	}
+
+	
+	/**
+	 * 公開用フォルダリストを取得
+	 *
+	 * @return multitype:mixed 公開用フォルダリスト
+	 */
+	private function getDirectorPublishPathList() {
+		$ret = array();
+		for($i = 1; ; $i++) {
+			@ $path = constant('AppConstants::DIRECTOR_PUBLISH_PATH_' . $i);
+			if (!$path) {
+				break;
+			}
+			$ret[] = $path;
+		}
+		return $ret;
+	}
 }
 ?>

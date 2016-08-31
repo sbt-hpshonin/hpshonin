@@ -34,11 +34,11 @@ class BatchCleanPackageContentFileController extends BatchAppController {
 		$this->log('パッケージ登録関連ファイル掃除バッチを開始しました。', LOG_INFO);
 
 		// コンテンツファイル削除対象のプロジェクトIDを取得
-		$package_list = $this->Package->getCleaningTargetListForDeleteContentFile();
+		$package_list = $this->Package->getDeadPackages();
 
-		$this->log('対象パッケージID↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓');
-		$this->log($package_list);
-		$this->log('対象パッケージID↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
+		$this->log('対象パッケージID↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓', LOG_DEBUG);
+		$this->log($package_list, LOG_DEBUG);
+		$this->log('対象パッケージID↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑', LOG_DEBUG);
 
 		if($package_list === false) {
 			$this->log('対象パッケージの取得に失敗しました。', LOG_ERR);
@@ -58,13 +58,14 @@ class BatchCleanPackageContentFileController extends BatchAppController {
 		foreach ($package_list as $package) {
 
 			// パッケージIDを取得
-			$package_id = $package['packages']['id'];
+			$package_id = $package['pkg']['id'];
 			$this->log('パッケージID：[' . $package_id . ']', LOG_DEBUG);
 
-					// トランザクション開始
+			// トランザクション開始
 			if ($this->Transaction->begin() === false) {
 				$this->log('トランザクション開始に失敗しました。', LOG_ERR);
 				$error_flg = true;
+				break;
 			}
 
 			// パッケージを取得
@@ -72,41 +73,45 @@ class BatchCleanPackageContentFileController extends BatchAppController {
 			if(empty($package)) {
 				$this->log('パッケージ情報の取得失敗しました。パッケージID：[' . $package_id . ']', LOG_ERR);
 				$error_flg = true;
-				continue;
-			}
-			//$this->log($package, LOG_DEBUG);
-
-			// 内部実行
-			if  ($this->executeInner($package) === false) {
-
-				// エラーフラグを立てる
-				$error_flg = true;
-
 				// ロールバック
 				if ($this->Components->Transaction->rollback(null) === false) {
 					$this->log('ロールバックに失敗しました。', LOG_ERR);
-					$error_flg = true;
+					break;
 				}
+				continue;
+			}
+
+			// 内部実行
+			if ($this->executeInner($package) === false) {
+
+				$error_flg = true;
 
 			} else {
 
 				// 更新値
 				$package['Package']['is_clean_file']	= AppConstants::FLAG_ON; 		// ファイル掃除フラグ
-				$package['Package']['modified_user_id'] = AppConstants::USER_ID_SYSTEM;	// 更新者ID
-				$package['Package']['modified']			= null;							// 更新日時
+				// $package['Package']['modified_user_id'] = AppConstants::USER_ID_SYSTEM;	// 更新者ID
 
 				// パッケージを更新
-				$this->Package->save($package);
-
-				// コミット
-				if($this->Transaction->commit() === false) {
-					$this->log('コミットに失敗しました。', LOG_ERR);
+				if ($this->Package->save($package) === false) {
 					$error_flg = true;
+					$this->log('packagesテーブルの更新に失敗しました。', LOG_ERR);
+					if ($this->Components->Transaction->rollback(null) === false) {
+						$this->log('ロールバックに失敗しました。', LOG_ERR);
+						break;
+					}
+				} else {
+					// コミット
+					if($this->Transaction->commit() === false) {
+						$this->log('コミットに失敗しました。', LOG_ERR);
+						$error_flg = true;
+						break;
+					}
 				}
 			}
 		}
 
-		if ($error_flg == true) {
+		if ($error_flg === true) {
 			$this->log('パッケージ登録関連ファイル掃除バッチを異常終了しました。', LOG_ERR);
 			return AppConstants::RESULT_CD_FAILURE; // 結果コード(:失敗)
 		} else {
@@ -142,16 +147,8 @@ class BatchCleanPackageContentFileController extends BatchAppController {
 		// アップロードファイル名を取得
 		$upload_file_name = $package['Package']['upload_file_name'];
 		$this->log('アップロードファイル名：[' . $upload_file_name . ']', LOG_DEBUG);
-// (S) 2013.10.21 murata
-// ブログパッケージ対応：ブログはアップロードファイルがないため、処理を削除
-//		if (empty($upload_file_name)) {
-//			$this->log('アップロードファイル名が不正です。', LOG_ERR);
-//			$this->log('パッケージ登録関連ファイル掃除バッチ(内部) 異常終了', LOG_DEBUG);
-//			return false;
-//		}
 
 		// アップロードファイルを削除
-//		if (FileUtil::exists(AppConstants::DIRECTOR_UPLOAD_PATH . DS . $upload_file_name)) {
 		if (!empty($upload_file_name) &&
 			FileUtil::exists(AppConstants::DIRECTOR_UPLOAD_PATH . DS . $upload_file_name)) {
 			if (FileUtil::remove(AppConstants::DIRECTOR_UPLOAD_PATH . DS . $upload_file_name) === false) {
@@ -160,20 +157,19 @@ class BatchCleanPackageContentFileController extends BatchAppController {
 				return false;
 			}
 		}
-// (E) 2013.10.21 murata
 
 		// 作業用フォルダに展開されたファイルを除去
 		if (FileUtil::rmdirAll(AppConstants::DIRECTOR_WORK_PATH . DS . $package_id) === false) {
 			$this->log('作業用フォルダに展開されたファイルの削除に失敗しました。パッケージID：[' . $package_id . ']', LOG_ERR);
 			$this->log('パッケージ登録関連ファイル掃除バッチ(内部) 異常終了', LOG_DEBUG);
-			return false;;
+			return false;
 		}
 
 		// 承認用フォルダにコピーされたファイルを除去
 		if (FileUtil::rmdirAll(AppConstants::DIRECTOR_APPROVAL_PATH . DS . $package_id) === false) {
 			$this->log('承認用フォルダにコピーされたファイルの削除に失敗しました。パッケージID：[' . $package_id . ']', LOG_ERR);
 			$this->log('パッケージ登録関連ファイル掃除バッチ(内部) 異常終了', LOG_DEBUG);
-			return false;;
+			return false;
 		}
 
 		$this->log('パッケージ登録関連ファイル掃除バッチ(内部) 正常終了', LOG_DEBUG);

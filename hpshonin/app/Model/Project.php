@@ -48,9 +48,32 @@ class Project extends AppModel {
 								'on' =>  'create',
 								'message' => 'すでに使われているサイトURLです。'
 							),
+							array(
+								'rule' => 'vanSiteUrl',
+								'message' => ''
+							),
 					),
 	);
 
+	
+	/**
+	 * サイトURLの禁止名チェック
+	 * @param  $value サイトURL
+	 * @return true:OK/false:MG
+	 * @author hsuzuki
+	 */
+	public function vanSiteUrl($value) {
+		$url_ary = explode(",", AppConstants::BAN_URL_LIST);
+		foreach($url_ary as $url){
+			if(strtolower( $value["site_url"] ) === strtolower($url) ){
+				$this->invalidate("site_url",$value["site_url"]. "というサイトURLは使えません。");
+				return false;
+			}
+		}
+		return true;
+	}	
+	
+	
 	/**
 	 * サイトURLの既存チェック
 	 * @param  $value サイトURL

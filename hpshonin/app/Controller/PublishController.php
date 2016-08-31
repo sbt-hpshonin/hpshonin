@@ -98,7 +98,7 @@ class PublishController extends AppController {
 		     $packages['Package']['status_cd'] != Status::STATUS_CD_RELEASE_RESERVE AND
 		     $packages['Package']['status_cd'] != Status::STATUS_CD_RELEASE_REJECT AND
 		     $packages['Package']['status_cd'] != Status::STATUS_CD_RELEASE_NOW AND
-		     $packages['Package']['status_cd'] != Status::STATUS_CD_RELEASE_ERROR 
+		     $packages['Package']['status_cd'] != Status::STATUS_CD_RELEASE_ERROR
 		){
 			// エラーメッセージセット
 			$err_msg[] = array("Versioned" =>  MsgConstants::ERROR_STATUS_UPSET);
@@ -544,6 +544,7 @@ class PublishController extends AppController {
 			if (($packages['Package']['status_cd'] ==Status::STATUS_CD_APPROVAL_OK)
 			  or  ($packages['Package']['status_cd'] ==Status::STATUS_CD_RELEASE_NOW )
 			  or  ($packages['Package']['status_cd'] ==Status::STATUS_CD_RELEASE_REJECT)
+			  or  ($packages['Package']['status_cd'] ==Status::STATUS_CD_RELEASE_ERROR)
 			  or (($packages['Package']['status_cd'] ==Status::STATUS_CD_RELEASE_RESERVE)
 			  		and ($wtimestmp > time()) ) ){
 			}else{
@@ -597,7 +598,8 @@ class PublishController extends AppController {
 						Status::STATUS_CD_APPROVAL_OK,
 						Status::STATUS_CD_RELEASE_NOW ,
 						Status::STATUS_CD_RELEASE_REJECT,
-						Status::STATUS_CD_RELEASE_RESERVE
+						Status::STATUS_CD_RELEASE_RESERVE,
+						Status::STATUS_CD_RELEASE_ERROR
 					) ,
 			);
 			if ($this->Package->updateAll($package_data,$condition) == False) {
@@ -817,6 +819,9 @@ class PublishController extends AppController {
 	    		case Status::STATUS_CD_RELEASE_REJECT:
 	    			// 正常：公開取消
 	    			break;
+	    		case Status::STATUS_CD_RELEASE_ERROR:
+	    			// 正常：公開エラー
+	    			break;
 	    		case Status::STATUS_CD_RELEASE_EXPIRATION:
 	    			// 異常：期限切れ
 	    			$err_msg[] = array("Versioned" =>  MsgConstants::ERROR_EXPIRATION);
@@ -870,11 +875,11 @@ class PublishController extends AppController {
     	$this->layout = "publish";
     }
 
-    /**
+	/**
 	 * 削除処理
 	 * @author hsuzuki
 	 */
-    public function upset_del3() {
+	public function upset_del3() {
 
     	if( $this->Auth->loggedIn() == False ){
     		// "ログインタイムアウトの場合・親画面をリロードしてクローズ
@@ -954,6 +959,9 @@ class PublishController extends AppController {
 	    		case Status::STATUS_CD_RELEASE_REJECT:
 	    			// 正常：公開取消
 	    			break;
+	    		case Status::STATUS_CD_RELEASE_ERROR:
+	    			// 正常：公開エラー
+	    			break;
 	    		case Status::STATUS_CD_RELEASE_EXPIRATION:
 	    			// 異常：期限切れ
 	    			$err_msg[] = array("Versioned" =>  MsgConstants::ERROR_EXPIRATION);
@@ -1000,7 +1008,7 @@ class PublishController extends AppController {
 					'Package.id'        => $package_id ,
 					'Package.is_del'    => AppConstants::FLAG_OFF ,
 					"Package.status_cd" => array(
-						Status::STATUS_CD_APPROVAL_OK,
+//						Status::STATUS_CD_APPROVAL_OK,
 						Status::STATUS_CD_RELEASE_REJECT,
 						Status::STATUS_CD_RELEASE_RESERVE
 					) ,

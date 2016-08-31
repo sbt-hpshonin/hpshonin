@@ -46,10 +46,7 @@ class EMailController {
 
 		$ret_val = $this->_mailer->Send();
 		if(!$ret_val) {
-			// echo "Message was not sent";
-			// echo "Mailer Error: " . $this->_mailer->ErrorInfo;
-		} else {
-			// echo "Message has been sent";
+			CakeLog::write('Error', 'e-mail sending error: ' . $this->_mailer->ErrorInfo);
 		}
 		return $ret_val;
 	}
@@ -89,7 +86,7 @@ class EMailController {
 			= "ホームページ承認システムにユーザー登録されました。\n"
 			. "以下のアドレスからシステムにログインできます。\n"
 			. AppConstants::MAIL_HOME_URL . "\n"
-			. ""
+			. "\n"
 			. "メールアドレス: {$to} \n"
 			. "パスワード: {$pass} \n"
 			. "\n"

@@ -45,10 +45,11 @@ $this->start('script');?>
 <?php $this->end(); ?>
 		<div class="row-fluid">
 			<div class="span12">
-				<span class="titlebar" style=" width:97%; height:15px; display: inline-block;_display: inline;">
-					<div style="z-index: 1; position: absolute; right:32px; float: right;"><?php echo $this->Html->link('<i class="icon icon-question-sign icon-white"></i>ヘルプ', '/manual.pdf', array('class'=> 'pull-right' ,'target' => '_blank', "escape" => false)); ?></div>
-					<div style="z-index: 0; position: relative; text-overflow:clip; white-space: nowrap; overflow:hidden; width:90%; height:20px;">プロジェクト<?php if($new == true ) echo "追加"; else echo "編集";?> - <?php echo h($project['Project']['project_name']); ?></div>
-				</span>
+				<?php 
+					if($new == true ) {$caption = "プロジェクト追加"; }else {$caption = "プロジェクト編集";} 
+					if(isset($project['Project']['project_name']) == true ){$memo = h($project['Project']['project_name']);} else{$memo = "";}
+				?>
+				<?php echo $this->Title->makeTitleBar($caption,$memo) ?>
 				<?php echo $this->Session->flash(); ?>
 				<form method="post" class='projects_edit_form' id='projects_edit_form'">
 				<?php echo $this->GuidChk->putGuid(); ?>
@@ -118,7 +119,10 @@ $this->start('script');?>
 							</tr>
 						</thead>
 						<tbody>
-							<?php foreach($project_user as $projectUser) : ?>
+							<?php 
+							if(isset($project_user) && count($project_user)){
+								foreach($project_user as $projectUser) : 
+							?>
 							<tr>
 								<td><?php 
 									echo $this->Html->link(
@@ -131,7 +135,10 @@ $this->start('script');?>
 								<td><?php echo h($projectUser['User']['contact_address']); ?></td>
 								<td><?php echo h($projectUser["Roll"]["roll_name"]); ?></td>
 								</tr>
-							<?php endforeach; ?>
+							<?php 
+								endforeach;
+							} 
+							?>
 						</tbody>
 						</table>
 					</div>
@@ -143,8 +150,8 @@ $this->start('script');?>
 							} else {
 								$url = '/projects/view/'. $project["Project"]["id"];
 							}
-							echo $this->Html->link('<i class="icon icon-chevron-left"></i>戻る', $url, array('escape' => false, 'class' => 'btn'));
-							echo $this->Html->link('登録', '#', array('class' => 'btn','id'=>"update" ));
+							echo $this->Html->link('<i class="icon icon-chevron-left"></i>戻る', $url, array('escape' => false, 'class' => 'btn')) ."\n";
+							echo $this->Html->link('登録', '#', array('class' => 'btn','id'=>"update" ))."\n";
 							if($new != true ){
 								echo $this->Html->link('削除', '#', array('class' => 'btn','id'=>"delete" ));
 							}

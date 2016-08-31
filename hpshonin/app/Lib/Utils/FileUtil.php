@@ -14,6 +14,29 @@ class FileUtil {
 	/** ハッシュのアルゴリズム*/
 	const ALGO = 'md5';
 
+	/** 変換しないファイル拡張子*/
+	private function getNoTransExtArray() {
+		return array(
+			// 画像系
+			'jpg',
+			'jpeg',
+			'png',
+			'gif',
+			'jfif',
+			'tif',
+			'tiff',
+			'bmp',
+			// 特定アプリファイル
+			'pdf',
+			'xls',
+			'xlsx',
+			'doc',
+			'docx',
+			'ppt',
+			'pptx'
+		);
+	}
+	
 	/**
 	 * ファイルをコピーします。
 	 *
@@ -261,6 +284,41 @@ class FileUtil {
 		if ('html' == FileUtil::getExtention($file)) {
 			if (empty($exclude) === false) {
 				$contents = StringUtil::remove($contents, $exclude);
+			}
+		}
+
+		// ハッシュ値に変換後、返却
+		CakeLog::debug(hash(self::ALGO, $contents));
+		return hash(self::ALGO, $contents);
+	}
+
+	/**
+	 * ファイルの内容のハッシュ値を返却します。
+	 *
+	 * @param  unknown $file  ファイルパス名
+	 * @return boolean|string ハッシュ値
+	 */
+	public static function hashArray($file, $excludes) {
+
+		CakeLog::debug('FileUtil::hash');
+		CakeLog::debug('  $file   ：[' . $file . ']');
+		CakeLog::debug('  $exclude：[' . $excludes . ']');
+
+		// 引数チェック
+		if (empty($file)) {
+			return false;
+		}
+
+		// ファイルの内容を取得
+		$contents = FileUtil::fileGetContents($file);
+		if($contents === false) {
+			return false;
+		}
+
+		$extension = strtolower(self::getExtention($file));
+		if (!in_array($extension, self::getNoTransExtArray())) {
+			foreach ($excludes as $ex) {
+				$contents = StringUtil::remove($contents, $ex);
 			}
 		}
 
@@ -1009,7 +1067,7 @@ class FileUtil {
 				$work = StringUtil::ltrimOnce($work, $remove_dir);
 			}
 			// 2013.10.23 H.Suzuki Changed END
-			
+
 			// 追加
 			$pathNames[] = $work;
 		}
@@ -1100,7 +1158,8 @@ class FileUtil {
 		CakeLog::debug('  $extension：[' . $extension . ']');
 
 		// 引数チェック
-		if (empty($dir) || empty($extension)) {
+//		if (empty($dir) || empty($extension)) {
+		if (empty($dir)) {
 			return false;
 		}
 
@@ -1112,7 +1171,8 @@ class FileUtil {
 
 		// 拡張子でフィルタリング
 		foreach ($result as $file) {
-			if ($extension === self::getExtention($file)) {
+			$extension = strtolower(self::getExtention($file));
+			if (!in_array($extension, self::getNoTransExtArray())) {
 				$result2[] = $file;
 			}
 		}
@@ -1184,6 +1244,46 @@ class FileUtil {
 	/**
 	 * 差が存在するか判定します。
 	 *
+	 * @param  unknown $file1    ファイルパス名1
+	 * @param  unknown $file2    ファイルパス名2
+	 * @param  unknown $exclude1 除外文字列1
+	 * @param  unknown $exclude2 除外文字列2
+	 * @return boolean           true：差がある、false：差がない
+	 */
+	public static function hasDiffArray($file1, $file2, $exclude1, $exclude2) {
+
+		CakeLog::debug('FileUtil::hasDiff');
+		CakeLog::debug('  $file1：[' . $file1 . ']');
+		CakeLog::debug('  $file2：[' . $file2 . ']');
+
+		//		// 更新日時
+		//		$time1 = FileUtil::filetime($file1);
+		//		$time2 = FileUtil::filetime($file2);
+		//		if ($time1 != $time2) {
+		//			return true; // 差がある
+		//		}
+
+		//		// ファイルサイズ
+		//		$size1 = FileUtil::size($file1);
+		//		$size2 = FileUtil::size($file2);
+		//		if ($size1 != $size2) {
+		//			return true; // 差がある
+		//		}
+
+		// ハッシュ
+		$hash1 = FileUtil::hashArray($file1, $exclude1);
+		$hash2 = FileUtil::hashArray($file2, $exclude2);
+		if ($hash1 != $hash2) {
+			return true; // 差がある
+		}
+
+		CakeLog::debug('no diff');
+		return false; // 差がない
+	}
+
+	/**
+	 * 差が存在するか判定します。
+	 *
 	 * @param  unknown $dir1     フォルダパス名1
 	 * @param  unknown $dir2     フォルダパス名2
 	 * @param  unknown $exclude1 除外文字列1
@@ -1215,6 +1315,37 @@ class FileUtil {
 
 			// ファイルの内容を比較
 			if (FileUtil::hasDiff($dir1 . DS . $file, $dir2 . DS .$file, $exclude1, $exclude2)) {
+				return true; // 差がある
+			}
+		}
+
+		return false; // 差がない
+	}
+
+	public static function hasDiffDirArray($dir1, $dir2, $exclude1, $exclude2) {
+		CakeLog::debug('FileUtil::hasDiffDir');
+		CakeLog::debug('  $dir1：[' . $dir1 . ']');
+		CakeLog::debug('  $dir2：[' . $dir2 . ']');
+
+		$file_list1 = FileUtil::getFileListFromDirAndRemoveString($dir1, $dir1);
+		$file_list2 = FileUtil::getFileListFromDirAndRemoveString($dir2, $dir2);
+
+		$count1 = count($file_list1);
+		$count2 = count($file_list2);
+
+		if ($count1 != $count2) {
+			return true; // 差がある
+		}
+
+		foreach ($file_list1 as $file) {
+
+			// 対応するファイルが存在しない場合
+			if (FileUtil::exists($dir2 . DS .$file) === false) {
+				return true; // 差がある
+			}
+
+			// ファイルの内容を比較
+			if (FileUtil::hasDiffArray($dir1 . DS . $file, $dir2 . DS .$file, $exclude1, $exclude2)) {
 				return true; // 差がある
 			}
 		}

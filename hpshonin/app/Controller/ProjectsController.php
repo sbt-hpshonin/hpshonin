@@ -205,7 +205,10 @@ class ProjectsController extends AppController {
 
 		// パッケージ検索
 		$this->paginate = array(
-				'conditions' => array('Package.project_id' => $id),
+				'conditions' => array(
+						'Package.project_id' => $id,
+						'Package.is_del' => 0,
+				),
 				'limit' => 10,
 				// 'order' => "Package.modified desc",
 				'order' => "Package.id desc ",
@@ -296,44 +299,6 @@ class ProjectsController extends AppController {
 				break;
 			}
 			$project_id = $this->Project->getInsertID();
-
-			// 作成者をプロジェクトユーザーに登録
-			if($roll_cd != AppConstants::ROLL_CD_ADMIN && $roll_cd != AppConstants::ROLL_CD_PR ){
-				$projectUser_data["project_id"] = $project_id;
-				$projectUser_data["created_user_id"] = $user_id;
-				$projectUser_data["modified_user_id"] = $user_id;
-				$projectUser_data["user_id"] = $user_id;
-				if (!$this->ProjectUser->save($projectUser_data)) {
-					// 登録失敗→再入力
-					$this->Project->rollback();
-					$this->Session->setFlash(MsgConstants::ERROR_DB);
-					break;
-				}
-			}
-			
-			// 管理者・広報を全員プロジェクトユーザーに登録
-			$optioon = array(
-					'conditions' => array(
-							'roll_cd' => array(AppConstants::ROLL_CD_ADMIN ,AppConstants::ROLL_CD_PR )
-					),
-					'recursive' =>-1
-			);
-			$users = $this->User->find('all', $optioon);
-			foreach($users as $user){
-				unset($projectUser_data);
-				$projectUser_data["id"] = null;
-				$projectUser_data["project_id"] = $project_id;
-				$projectUser_data["created_user_id"] = $user_id;
-				$projectUser_data["modified_user_id"] = $user_id;
-				$projectUser_data["user_id"] = $user["User"]["id"];
-				if (!$this->ProjectUser->save($projectUser_data)) {
-					// 登録失敗→再入力
-					$this->Project->rollback();
-					$this->Session->setFlash(MsgConstants::ERROR_DB);
-					break;
-				}
-			}
-				
 			
 			// バッチキュー登録
 			$this->BatchQueue->set( "created_user_id" , $user_id  );
@@ -907,7 +872,8 @@ class ProjectsController extends AppController {
 			// 承認・却下以外はホームにリダイレクト
 			$status = $this->request->data['status'];
 			if ($status === 'approval'){
-				$status_cd = Status::STATUS_CD_APPROVAL_OK;
+//				$status_cd = Status::STATUS_CD_APPROVAL_OK;
+				$status_cd = Status::STATUS_CD_RELEASE_READY;
 				$batch_cd = Batch::BATCH_CD_APPROVAL_OK;
 			}elseif($status === 'reject'){
 				$status_cd = Status::STATUS_CD_APPROVAL_REJECT;
