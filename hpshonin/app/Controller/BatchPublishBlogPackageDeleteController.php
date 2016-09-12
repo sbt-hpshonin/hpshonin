@@ -5,7 +5,6 @@ App::uses('BatchPackageController', 'Controller');
 /**
  * 削除ブログパッケージ公開バッチ
  *
- * (現在未使用)
  * @author tasano
  *
 */

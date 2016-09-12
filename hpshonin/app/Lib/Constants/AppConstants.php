@@ -184,4 +184,5 @@ class AppConstants {
 	// 公開リトライ用
 	/** 公開処理のリトライ回数 */
 	const RETRY_MAX_COUNT = 5;
+	
 }

@@ -687,7 +687,6 @@ abstract class BatchPackageController extends BatchAppController {
 		// AppConstants::APPCMD_SITE_NAMEが公開サーバーに存在しない
 		if(empty($vdirName)) {
 			$this->log('AppConstants::APPCMD_SITE_NAMEが存在しません。', LOG_ERR);
-			$this->log('$result:'.$result, LOG_ERR);
 			return false;
 		}
 
@@ -726,7 +725,6 @@ abstract class BatchPackageController extends BatchAppController {
 		// 作成・更新した仮想ディレクトリと、取得した仮想ディレクトリが一致しなければ失敗と判断する
 		if($vdirName != AppConstants::APPCMD_STAGING_PATH_NAME . self::SLASH .$site_url) {
 			$this->log('仮想ディレクトリの作成に失敗しました。['.$vdirName.']', LOG_ERR);
-			$this->log('$result:'.$result, LOG_ERR);
 			//return false;
 		}
 
@@ -736,7 +734,6 @@ abstract class BatchPackageController extends BatchAppController {
 		// 作成・更新した物理フォルダと、取得した物理フォルダが一致しなければ失敗と判断する
 		if($physicalPathName != $publish_path_iis) {
 			$this->log('仮想ディレクトリの物理フォルダの作成に失敗しました。', LOG_ERR);
-			$this->log('$result:'.$result, LOG_ERR);
 			//return false;
 		}
 		

@@ -1812,6 +1812,54 @@ return "";
 
 	/***************************************************/
 
+	/**
+	 * ??使用箇所不明
+	 *
+	 * @param unknown $id
+	 * @return unknown
+	 */
+	public function mt_get_by_key($id) {
+
+		//トランザクション開始
+		//$this->EditMtDb->beginTransaction();
+
+		try{
+
+			//キー検索SQL
+			$str_sql="SELECT entry_id AS ID,";
+			$str_sql=$str_sql."date_format(entry_modified_on, '%Y/%m/%d %k:%i') as MODIFIED,";
+			$str_sql=$str_sql."entry_title  AS SUBJECT,";
+			$str_sql=$str_sql."entry_text  AS CONTENS,";
+			$str_sql=$str_sql."entry_text_more  AS CONTENS_MORE";
+
+			$str_sql=$str_sql." FROM mt_entry ";
+			$str_sql=$str_sql." WHERE entry_id =".$id;
+
+			$rs = $this->EditMtDb->queryFetch($str_sql);
+
+			//コミット
+			$this->EditMtDb->commit();
+		}catch (Exception $e){
+			// 例外が発生したのでロールバック
+			$this->EditMtDb->rollBack();
+			echo 'is rollbacked.';
+			echo 'SQL='.$str_sql;
+
+			$result = AppConstants::RESULT_CD_FAILURE;
+		}
+
+		//データベースサーバへの接続の切断
+		$this->EditMtDb->close();
+
+		//DB情報を出力エリアにセット
+
+
+		//DIE(var_dump($rs));
+		return  $rs;
+		//return  $blogentry;
+
+	}
+
 	static function compare_path($path1, $path2) {
 		$path_array1 = explode("\\", $path1);
 		$path1_depth = count($path_array1);
